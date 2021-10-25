@@ -63,6 +63,11 @@ public class Tile {
                 sides[0] = true;
                 break;
             default:
+                this.type = 5;
+                sides[0] = true;
+                sides[1] = true;
+                sides[2] = true;
+                sides[3] = true;
                 break;
         }
         for (int loop = 0; loop < dir; loop++) {

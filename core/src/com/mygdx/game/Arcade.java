@@ -6,11 +6,9 @@
 package com.mygdx.game;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
@@ -19,7 +17,6 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 
 import java.util.Random;
@@ -47,6 +44,8 @@ public class Arcade extends Unit {
     private int step = 1;
     private float brightness = 1;
 
+    private int rType = 5;
+
     private float ospeed = 0;
     private float speed = 0;
     private int yoffset = 200 + tileSize;
@@ -60,12 +59,11 @@ public class Arcade extends Unit {
     //resources
     //private Array<Vector2> corners = new Array<Vector2>();
     private Texture cursor;
-    private Pixmap pixmap;
 
     //game variables
     private int score = 0;
     private int waitTime = 4000;
-    private long currentTime = 0;
+    private long currentTime = System.currentTimeMillis();
     private long startTime = 0;
     private int pScale = 5;
     private int type = rng.nextInt(100); //next piece to drop
@@ -96,12 +94,12 @@ public class Arcade extends Unit {
     public int hcolumn = 3;
     public int hrow = 0;
 
-    private int[] next = new int[field.length];
+    private int next = rng.nextInt(6);
 
     //to generate new tiles
     private Tile newTile() {
         Tile tile;
-        tile = new Tile(Type.valueOf(next[ccolumn]));
+        tile = new Tile(Type.valueOf(next));
 
         //if (current != null)
         //tile.incDir(current.dir, tileSize);
@@ -117,8 +115,6 @@ public class Arcade extends Unit {
 
         shapeRenderer = new ShapeRenderer();
 
-        for (int i = 0; i < next.length; i++)
-            next[i] = rng.nextInt(6);
         xoffset = (int)(game.camera.viewportWidth - ((tileSize)*field.length))/2;
         generator = new FreeTypeFontGenerator(Gdx.files.internal("font.otf"));
         parameter.size = 150;
@@ -135,18 +131,14 @@ public class Arcade extends Unit {
     public void process() {
         if (!paused) {
             if (!end) {
-                if (dframes <= 0) {
-                    drawParticles();
-                    drawField();
-                } else {
-                    drawConnected();
-                }
+                drawParticles();
+                drawField();
             } else {
                 game.setScreen(new Death(game, field));
             }
 
             if (flux > 0) flux = flux - 2;
-            currentTime = currentTime + ((long)(Gdx.graphics.getDeltaTime()*1000)-(findSpace(ccolumn)/2));
+            currentTime = currentTime + ((long)(Gdx.graphics.getDeltaTime()*1000)-(findSpace(ccolumn)/2)-(tiles/15));
 
             if (currentTime - startTime >= waitTime) {
                 waitTime = waitTime - (int)speed;
@@ -162,15 +154,17 @@ public class Arcade extends Unit {
                         cPos = ccolumn * tileSize;
                         type = rng.nextInt(100);
                         if (type < 10)
-                            next[ccolumn] = 4;
-                        else if (type < 30)
-                            next[ccolumn] = 3;
-                        else if (type < 55)
-                            next[ccolumn] = 2;
-                        else if (type < 80)
-                            next[ccolumn] = 1;
+                            next = 4;
+                        else if (type < 25)
+                            next = 3;
+                        else if (type < 50)
+                            next = 2;
+                        else if (type < 70)
+                            next = 1;
+                        else if (type < 85)
+                            next = 0;
                         else
-                            next[ccolumn] = 0;
+                            next = 5;
                         current = newTile();
                     }
                 }
@@ -225,7 +219,6 @@ public class Arcade extends Unit {
         //quit
     }
 
-
     public void processTouching(boolean changed) {
         int x = (int) ((touchPos.x - xoffset) / tileSize);
         int y = (int) ((touchPos.y - yoffset) / tileSize);
@@ -253,16 +246,6 @@ public class Arcade extends Unit {
         }
 
         speed = speed + 0.1f;
-        if (y < 0 && ccolumn != x) {
-            moved = true;
-            if (x >= 0 && x < field.length) {
-                lastPos = ccolumn * tileSize;
-                lastMovTime = System.currentTimeMillis();
-                ccolumn = x;
-            }
-        } else {
-            moved = false;
-        }
     }
 
     public void processNotouch(boolean changed) {
@@ -275,9 +258,7 @@ public class Arcade extends Unit {
 
     private void checktion(Tile tile) {
         tile.checked = true;
-        boolean containsLoop = false;
         //use BFS to see if the graph is connected
-        Array<Tile> caught = new Array<Tile>();
         Array<Tile> graph = new Array<Tile>();
         Array<Tile> stack = new Array<Tile>();
         stack.add(tile);
@@ -315,12 +296,14 @@ public class Arcade extends Unit {
                         ctile.children[i] = chtile;
                         if (!graph.contains(chtile, true)) {
                             System.out.println("WE HAVEN'T RECORDED THIS TILE YET, ADDING THE TILE WHOSE COORDS ARE " + new Vector2(chtile.xpos, chtile.ypos) + " TO THE STACK");
-                            stack.add(chtile);
+                            if (chtile.type < rType)
+                                stack.add(chtile);
+                            else
+                                chtile.children[(i + 2) % 4] = ctile;
                             graph.add(chtile);
                             chtile.parent = ctile;
                         } else if (chtile != ctile.parent) {//this isn't the same tile)
                             System.out.println("FOUND A LOOP");
-                            containsLoop = true;
                         } else {
                             System.out.println("THIS IS JUST THE TILE'S PARENT, IGNORE IT");
                         }
@@ -347,7 +330,6 @@ public class Arcade extends Unit {
             //System.out.println("FINISHED CHECKING TILE AT " + x0 + ", " + y0);
             if (open) {
                 stack.clear();
-                caught.clear();
                 for (int i = 0; i < graph.size; i++) {
                     graph.get(i).parent = null;
                     for (int c = 0; c < graph.get(i).children.length; c++)
@@ -361,30 +343,31 @@ public class Arcade extends Unit {
             speed = speed + (graph.size)/(15*(speed+1));
             brightness = 0;
             game.bust.play();
-            dframes = 10;
-            System.out.println(caught.size + " TILES ARE CAUGHT");
+            dframes = 5 + (2 * graph.size);
             System.out.println(graph.size + " TILES ARE CONNECTED");
         }
         for (int i = 0; i < graph.size; i++) {
-            if (caught.contains(graph.get(i), true))
-                caught.removeValue(graph.get(i), true);
+            if (graph.get(i).type == rType) {
+                for (int c = 0; c < graph.get(i).children.length; c++) {
+                    System.out.println("CHECKING THIS SIDE...");
+                    if (graph.get(i).children[c] != null) {
+                        System.out.println("DELETE");
+                        graph.get(i).sides[c] = false;
+                    }
+                }
+            }
             score = score + (i * 10);
             flux = flux + (score * 10);
             graph.get(i).connected = true;
         }
-        for (int i = 0; i < caught.size; i++) {
-            System.out.println((caught.get(i).xpos / tileSize) + ", " + (caught.get(i).ypos / tileSize) + " IS CAUGHT");
-            score = score + (i * 25);
-            flux = flux + (score * 25);
-            caught.get(i).caught = true;
-        }
     }
 
-    private void updateTile(int x, int y) {
+    private void updateTile(Tile tile) {
         //if (corners.contains(new Vector2(x, y), false))
         //game.batch.draw(new TextureRegion(square), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.2f, 0.2f, 0);
-        Tile tile = getTile(new Vector2(x, y));
         if (tile != null) {
+            int x = (int)tile.coords.x;
+            int y = (int)tile.coords.y;
             if (tile.ypos != tile.coords.y * tileSize) {
                 if (tile.ypos > tile.coords.y * tileSize) {
                     if (tile.ypos - tile.velocity > tile.coords.y * tileSize) {
@@ -427,19 +410,34 @@ public class Arcade extends Unit {
         int e = field.length+1;
         for (int x = s; x < e; x++) {
             for (int y = ceiling; y >= 0; y--) {
-                updateTile(x, y);
                 Tile tile = getTile(new Vector2(x, y));
+                updateTile(tile);
                 if (tile != null) {
                     game.batch.setColor(colors[tile.type]);
-                    game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * x, yoffset + tile.ypos, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, 0);
+                    if (tile.connected) {
+                        game.batch.setColor(Color.WHITE);
+                    }
+                    game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * x, yoffset + tile.ypos, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.8f, 0.8f, 0);
                     game.batch.setColor(Color.WHITE);
-                    game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * tile.type, 0, game.types.getHeight(), game.types.getHeight()), xoffset + tileSize * x, yoffset + tile.ypos, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1, tile.angle);
+                    if (tile.type == rType) {
+                        for (int c = 0; c < tile.sides.length; c++) {
+                            if (tile.sides[c]) {
+                                if (!tile.connected || tile.children[c] != null)
+                                    game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * rType, 0, game.types.getHeight(), game.types.getHeight()), xoffset + tileSize * x, yoffset + tile.ypos, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1, 90 * c);
+                            }
+                        }
+                    } else {
+                        game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * tile.type, 0, game.types.getHeight(), game.types.getHeight()), xoffset + tileSize * x, yoffset + tile.ypos, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1, tile.angle);
+                    }
+                    if (tile.connected && dframes == 1) {
+                        destroyTile(tile);
+                    }
                 }
             }
         }
 
-        for (int i = 0; i < corners.size; i++) {
-            game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * corners.get(i).coords.x, 5 + yoffset + corners.get(i).ypos, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, corners.get(i).angle);
+        if (dframes > 0) {
+            dframes = dframes - 1;
         }
 
         //hud
@@ -448,12 +446,6 @@ public class Arcade extends Unit {
         //game.batch.draw(new TextureRegion(square), tileSize / 5, (game.camera.viewportHeight - tileSize) + tileSize / 5, (tileSize / 2), (tileSize / 2), (game.camera.viewportWidth - 2 * tileSize / 5)*(flux/10000f), 3 * tileSize / 5, 1, 1, 0);
         font.setColor(Color.WHITE);
         game.batch.setColor(1, 1, 1, 1);
-
-        float time = (float) (System.currentTimeMillis() - lastMovTime) / (300 / (1+speed));
-        cPos = Interpolation.sineOut.apply(lastPos, ccolumn * tileSize, time);
-        if (time > 1) {
-            cPos = tileSize * ccolumn;
-        }
 
         for (int x = 0; x < field.length; x++) {
             game.batch.setColor(Color.WHITE);
@@ -478,43 +470,36 @@ public class Arcade extends Unit {
         game.batch.setColor(Color.RED);
         game.batch.draw(new TextureRegion(game.pixel), 0, yoffset + tileSize * (ceiling - 1), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5, 1, 1, 0);
 
+        float time = (float) (System.currentTimeMillis() - lastMovTime) / (300 / (1+speed));
+        cPos = Interpolation.sineOut.apply(lastPos, ccolumn * tileSize, time);
+        if (time > 1) {
+            cPos = tileSize * ccolumn;
+        }
     }
 
-    private void drawConnected() {
-        game.batch.setColor(Color.WHITE);
-        dframes = dframes - 1;
-        for (int x = 0; x < field.length; x++) {
-            for (int y = 0; y < ceiling; y++) {
-                if (field[x][y] != null) {
-                    if (field[x][y].connected) {
-                        //System.out.println("TILE AT " + x + ", " + y + " IS CONNECTED");
-                        game.batch.setColor(Color.WHITE);
-                        game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * x, yoffset + tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, 0);
-                        game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * field[x][y].type, 0, game.types.getHeight(), game.types.getHeight()), (((field[x][y].dir + 1) % 4) / 2) + xoffset + tileSize * x, ((field[x][y].dir) / 2) + 5 + yoffset + field[x][y].ypos, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1, field[x][y].angle);
-                        if (dframes <= 1) {
-                            field[x][y].opacity = 1;
-                            Tile tile = remove(x, y);
-                            for (int i = 0; i < 25; i++) {
-                                Tile particle = new Tile(Type.valueOf(tile.type));
-                                particle.xpos = tileSize * x;
-                                particle.ypos = tileSize * y;
-                                particle.angle = rng.nextInt((45 - -45) + 1) + -45;
-                                dblocks.add(particle);
-                            }
-                            tiles--;
-                            //System.out.println("ADDED TO DBLOCKS");
-                        }
-                    } else if (field[x][y].caught) {
-                        game.batch.draw(new TextureRegion(game.pixel), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, 0);
-                        if (dframes <= 1) {
-                            field[x][y].opacity = 1;
-                            Tile tile = remove(x, y);
-                            tiles--;
-                        }
-                    }
-                }
-            }
+    private void destroyTile(Tile tile) {
+        tile.opacity = 1;
+        boolean destroy = true;
+        if (tile.type == rType) {
+            for (int c = 0; c < tile.sides.length; c++)
+                if (tile.sides[c])
+                    destroy = false;
         }
+        if (destroy) {
+            remove((int) tile.coords.x, (int) tile.coords.y);
+            for (int i = 0; i < 25; i++) {
+                Tile particle = new Tile(Type.valueOf(tile.type));
+                particle.xpos = tileSize * tile.coords.x;
+                particle.ypos = tileSize * tile.coords.y;
+                particle.angle = rng.nextInt((45 - -45) + 1) + -45;
+                particle.opacity = 1;
+                dblocks.add(particle);
+            }
+            tiles--;
+        } else {
+            tile.connected = false;
+        }
+        //System.out.println("ADDED TO DBLOCKS");
     }
 
     private void drawParticles() {
@@ -543,32 +528,30 @@ public class Arcade extends Unit {
 
     public void drawShape() {
         //must prepare for the next frame
-        if (currentTime + ((long)(Gdx.graphics.getDeltaTime()*1000)-(findSpace(ccolumn)/2)) - startTime < waitTime) {
-            shapeRenderer.setProjectionMatrix(game.camera.combined);
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            shapeRenderer.setColor(Color.WHITE);
-            shapeRenderer.arc(xoffset + cPos + tileSize - tileSize/2, tileSize/2, tileSize/2 + 5, 90, 360 - 360*((currentTime-startTime)/(float)(waitTime)));
-            shapeRenderer.setColor(Color.BLACK);
-            shapeRenderer.circle(xoffset + cPos + tileSize - tileSize/2, tileSize/2, tileSize/2);
-            //game.batch.draw(new TextureRegion(game.push), xoffset + cPos, 0, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, 0);
-            shapeRenderer.end();
-        }
+        shapeRenderer.setProjectionMatrix(game.camera.combined);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(Color.WHITE);
+        shapeRenderer.arc(xoffset + ((1 + ccolumn) * tileSize) - tileSize / 2, tileSize / 2, tileSize / 2, 90, 360 - 360 * ((currentTime - startTime) / (float) (waitTime)));
+        shapeRenderer.setColor(Color.BLACK);
+        shapeRenderer.circle(xoffset + ((1 + ccolumn) * tileSize) - tileSize / 2, tileSize / 2, tileSize / 2 - 5);
+        //game.batch.draw(new TextureRegion(game.push), xoffset + cPos, 0, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, 0);
+        shapeRenderer.end();
     }
 
-    public void place(Tile tile, int x, int y) {
+    private void place(Tile tile, int x, int y) {
         tile.coords.set(x, y);
         adjustColumn(x, y);
         field[x][y] = tile;
     }
 
-    public Tile remove(int x, int y) {
+    private Tile remove(int x, int y) {
         Tile tile = field[x][y];
         field[x][y] = null;
         adjustColumn(x, y);
         return tile;
     }
 
-    public void adjustColumn(int x, int y) {
+    private void adjustColumn(int x, int y) {
         //takes all the pieces in the column starting from y and shifts them to the bottom starting at y
         if (field[x][y] == null) {
             //this executes when a tile is taken away, will move all the tiles above it downwards 1
@@ -611,7 +594,7 @@ public class Arcade extends Unit {
         return i;
     }
 
-    public Tile getTile(Vector2 coords) {
+    private Tile getTile(Vector2 coords) {
         if (coords.y > ceiling)
             return null;
         if (coords.y < 0) {
