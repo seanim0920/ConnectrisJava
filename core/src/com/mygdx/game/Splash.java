@@ -14,33 +14,16 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 
 class Load extends Thread {
     public void run(final Main game) {
-        game.manager.load("images/b.png", Texture.class);
-        game.manager.load("images/i.png", Texture.class);
-        game.manager.load("images/l.png", Texture.class);
-        game.manager.load("images/r.png", Texture.class);
-        game.manager.load("images/t.png", Texture.class);
-        game.manager.load("images/p.png", Texture.class);
+        game.manager.load("images/tiles.png", Texture.class);
         game.manager.load("images/pin.png", Texture.class);
+        game.manager.load("images/push.png", Texture.class);
+        game.manager.load("images/turn.png", Texture.class);
+        game.manager.load("images/floor.png", Texture.class);
         game.manager.load("drop.wav", Sound.class);
         game.manager.load("bust.wav", Sound.class);
         game.manager.load("twist.wav", Sound.class);
         game.manager.load("danger.wav", Sound.class);
         game.manager.load("music.mp3", Music.class);
-        game.manager.finishLoading();
-        game.types.add(game.manager.get("images/i.png", Texture.class));
-        game.types.add(game.manager.get("images/l.png", Texture.class));
-        game.types.add(game.manager.get("images/r.png", Texture.class));
-        game.types.add(game.manager.get("images/t.png", Texture.class));
-        game.types.add(game.manager.get("images/p.png", Texture.class));
-        game.types.add(game.manager.get("images/b.png", Texture.class));
-        game.pin = game.manager.get("images/pin.png", Texture.class);
-        game.drop = game.manager.get("drop.wav", Sound.class);
-        game.bust = game.manager.get("bust.wav", Sound.class);
-        game.twist = game.manager.get("twist.wav", Sound.class);
-        game.danger = game.manager.get("danger.wav", Sound.class);
-        game.music = game.manager.get("music.mp3", Music.class);
-        game.menu = new Menu(game);
-        game.play = new Arcade(game, game.manager.get("music.mp3", Music.class));
     }
 }
 
@@ -50,15 +33,13 @@ public class Splash implements Screen {
     private int y = 0;
     private FreeTypeFontGenerator generator;
     private FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
-    private BitmapFont header;
 
     public Splash(final Main game) {
         this.game = game;
         generator = new FreeTypeFontGenerator(Gdx.files.internal("font.otf"));
         parameter.color = Color.WHITE;
         parameter.size = 120;
-        header = generator.generateFont(parameter);
-        game.header = header;
+        game.header = generator.generateFont(parameter);
         y = game.tileSize * 12;
         new Load().run(game);
     }
@@ -80,7 +61,7 @@ public class Splash implements Screen {
         game.batch.draw(new TextureRegion(game.pixel), 0, (game.camera.viewportHeight - game.tileSize), (game.tileSize / 2), (game.tileSize / 2), game.camera.viewportWidth, 5 * game.tileSize / 5, 1, 1, 0);
         game.batch.setColor(Color.WHITE);
 
-        header.draw(game.batch, "CONNECTRIS", x, y);
+        game.header.draw(game.batch, "CONNECTRIS", x, y);
 
         game.batch.setColor(1, 1, 1, 1);
 
@@ -88,8 +69,24 @@ public class Splash implements Screen {
 
         x = (x + 1) % (int)game.camera.viewportWidth;
 
-        if (game.manager.update())
+        if (game.manager.update()) {
+            game.types = game.manager.get("images/tiles.png", Texture.class);
+            game.floor = game.manager.get("images/floor.png", Texture.class);
+            game.pin = game.manager.get("images/pin.png", Texture.class);
+            game.pin.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+            game.drop = game.manager.get("drop.wav", Sound.class);
+            game.bust = game.manager.get("bust.wav", Sound.class);
+            game.twist = game.manager.get("twist.wav", Sound.class);
+            game.danger = game.manager.get("danger.wav", Sound.class);
+            game.music = game.manager.get("music.mp3", Music.class);
+            game.push = game.manager.get("images/push.png", Texture.class);
+            game.push.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+            game.turn = game.manager.get("images/turn.png", Texture.class);
+            game.turn.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+            game.menu = new Menu(game);
+            game.play = new Arcade(game, game.manager.get("music.mp3", Music.class));
             game.setScreen(game.menu);
+        }
     }
 
     @Override

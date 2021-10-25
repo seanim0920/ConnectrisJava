@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 
@@ -17,89 +18,26 @@ import java.util.Random;
 
 public abstract class Unit implements Screen {
     public Main game;
-    public BitmapFont header;
-    public Texture square;
     public boolean touched = false;
     public Vector3 touchPos = new Vector3();
     public Vector3 oldPos = new Vector3();
-    public Tile[][] field = new Tile[7][12];
-    public OrthographicCamera camera;
-    public boolean moved = false;
-    public int hcolumn = 3;
-    public int hrow = 0;
     public int tileSize;
-    public int tcolumn = 3;
-    public int ceiling = 11;
     public Random rng = new Random();
     public FreeTypeFontGenerator generator;
 
-    public Tile holding = null;
+    public BitmapFont header;
 
-    public Array<Texture> types = new Array<Texture>();
-    public Color[] colors = {Color.YELLOW, Color.GREEN, Color.BLUE, Color.CYAN, Color.MAGENTA, Color.RED};
+    public Texture types;
+
+    public Tile holding = null;
 
     public Unit(final Main game) {
         this.game = game;
-        this.square = game.pixel;
-        this.camera = game.camera;
-        this.types = game.types;
-        this.header = game.header;
-        this.tileSize = (int)(game.camera.viewportWidth/7);
-    }
-
-    public void place(Tile tile, int x, int y) {
-        adjustColumn(x, y);
-        field[x][y] = tile;
-    }
-
-    public Tile remove(int x, int y) {
-        Tile tile = field[x][y];
-        field[x][y] = null;
-        adjustColumn(x, y);
-        return tile;
-    }
-
-    public void adjustColumn(int x, int y) {
-        //takes all the pieces in the column starting from y and shifts them to the bottom starting at y
-        if (field[x][y] == null) {
-            //this executes when a tile is taken away, will move all the tiles above it downwards 1
-            for (int i = y + 1; i <= ceiling; i++) {
-                field[x][i - 1] = field[x][i];
-                field[x][i] = null;
-            }
-        } else {
-            //execute this before placing a tile, will move all the tiles above it upwards 1
-            for (int i = ceiling; i > y; i--) {
-                field[x][i] = field[x][i - 1];
-                field[x][i - 1] = null;
-            }
-        }
-    }
-
-    public int findFloor(int x) {
-        int y = ceiling + 1;
-        for (int i = 0; i <= ceiling; i++) {
-            //add an offset there so that if the block is overlapping its spot by a certain amount, the floor will go above it
-            if (field[x][i] == null) {
-                y = i;
-                break;
-            }
-        }
-        return y;
-    }
-
-    public int findSpace(int x) {
-        int i = findFloor(x);
-        for (int y = i - 1; y >= 0; y--) {
-            if (field[hcolumn][y] != null && field[hcolumn][y].height > ((y) * tileSize) + (tileSize / 2)) {
-                i = y;
-            }
-        }
-        return i;
+        this.tileSize = game.tileSize;
     }
 
     public void checkTouch() {
-        if (camera != null) {
+        if (game.camera != null) {
             if (Gdx.input.isTouched()) {
                 touchPos = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0));
                 if (touched) {
@@ -143,14 +81,16 @@ public abstract class Unit implements Screen {
 
         checkTouch();
 
+        drawShape();
+
         game.batch.begin();
 
         process();
 
         game.batch.setColor(Color.WHITE);
-        game.batch.draw(new TextureRegion(square), 0, game.camera.viewportHeight - (tileSize + 5), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, tileSize / 7, 1, 1, 0);
+        game.batch.draw(new TextureRegion(game.pixel), 0, game.camera.viewportHeight - (tileSize + 5), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, tileSize / 7, 1, 1, 0);
         game.batch.setColor(Color.BLACK);
-        game.batch.draw(new TextureRegion(square), 0, (game.camera.viewportHeight - tileSize), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5 * tileSize / 5, 1, 1, 0);
+        game.batch.draw(new TextureRegion(game.pixel), 0, (game.camera.viewportHeight - tileSize), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5 * tileSize / 5, 1, 1, 0);
         game.batch.setColor(Color.WHITE);
 
         drawText();
@@ -158,5 +98,9 @@ public abstract class Unit implements Screen {
         game.batch.setColor(1, 1, 1, 1);
 
         game.batch.end();
+    }
+
+    public void drawShape() {
+
     }
 }

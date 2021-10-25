@@ -22,7 +22,7 @@ class Main extends Game implements ApplicationListener {
 	AssetManager manager = new AssetManager();
 	SpriteBatch batch;
 	BitmapFont header;
-    BitmapFont text;
+	BitmapFont text;
 	OrthographicCamera camera;
 	int tileSize;
 
@@ -30,11 +30,15 @@ class Main extends Game implements ApplicationListener {
 	Screen play;
 
 	public Texture pixel;
+	public Texture floor;
+	public Texture push;
+	public Texture turn;
 
-    boolean touched = false;
-    Vector3 touchPos = new Vector3();
+	boolean touched = false;
+	Vector3 touchPos = new Vector3();
 
-	Array<Texture> types = new Array<Texture>();
+	Texture types;
+	Array<Texture> preview = new Array<Texture>();
 	Texture pin;
 
 	Music music;
@@ -52,8 +56,8 @@ class Main extends Game implements ApplicationListener {
 		pixel = new Texture(pixmap);
 		batch = new SpriteBatch();
 		camera = new OrthographicCamera();
-		camera.setToOrtho(false, 1080, 1920);
-		this.tileSize = 153;
+		camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+		this.tileSize = 160;
 		this.setScreen(new Splash(this));
 		prefs = Gdx.app.getPreferences("My Preferences");
 		prefs.putBoolean("First", false);

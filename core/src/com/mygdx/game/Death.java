@@ -136,9 +136,7 @@ public class Death extends Arcade implements Screen {
 
     @Override
     public void dispose() {
-        for (int i = 0; i < types.size; i++) {
-            types.get(i).dispose();
-        }
+        game.types.dispose();
         generator.dispose();
         drop.dispose();
         thud.dispose();
@@ -149,7 +147,7 @@ public class Death extends Arcade implements Screen {
 
     private void drawPause() {
         game.batch.setColor(Color.WHITE);
-        game.batch.draw(new TextureRegion(square), 0, game.camera.viewportHeight - tileSize, (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, tileSize, 1, 1, 0);
+        game.batch.draw(new TextureRegion(game.pixel), 0, game.camera.viewportHeight - tileSize, (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, tileSize, 1, 1, 0);
         font.setColor(Color.BLACK);
         font.draw(game.batch, "PAUSED", tileSize/10 + 4, (int)(game.camera.viewportHeight - tileSize/5) + 4);
 
@@ -183,15 +181,15 @@ public class Death extends Arcade implements Screen {
                     Tile tile = field[x][y];
                     game.batch.setColor(colors[tile.type].r, colors[tile.type].g, colors[tile.type].b, 1);
                     int height = (y - step) * tileSize;
-                    if (tile.height > height) {
+                    if (tile.ypos > height) {
                         falling = true;
-                        tile.height = tile.height - tile.velocity;
+                        tile.ypos = tile.ypos - tile.velocity;
                         tile.velocity = tile.velocity + 1.9f;
-                    } else if (tile.height < height) {
-                        tile.height = height;
+                    } else if (tile.ypos < height) {
+                        tile.ypos = height;
                         tile.velocity = 0;
                     }
-                    game.batch.draw(new TextureRegion(types.get(tile.type)), tileSize * x, tile.height, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, tile.angle);
+                    game.batch.draw(new TextureRegion(game.pixel), tileSize * x, 100, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, tile.angle);
                 }
             }
         }
