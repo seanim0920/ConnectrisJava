@@ -1,5 +1,7 @@
 package com.mygdx.game;
 
+import com.badlogic.gdx.math.Vector2;
+
 /**
  * Created by admin on 7/19/2017.
  */
@@ -10,14 +12,15 @@ public class Tile {
     protected float height = 1736;
     protected float velocity = 0;
 
-    protected boolean check = false;
+    protected boolean checked = false;
     protected long lastRotTime;
-    protected Tile parent = null;
-    protected float transparency = 1;
+    protected Vector2 parent = new Vector2(-1,-1);
+    protected float opacity = 1;
     protected int type = 0;
     protected float angle = 0;
     protected int dir = 0;
     protected boolean placed = false;
+    protected boolean caught = false;
     protected boolean connected = false;
     protected boolean destroyed = false;
     protected boolean falling = false;
@@ -41,6 +44,10 @@ public class Tile {
                 sides[3] = true;
                 break;
             default:
+                sides[0] = true;
+                sides[1] = true;
+                sides[2] = true;
+                sides[3] = true;
                 break;
         }
         for (int loop = 0; loop < dir; loop++) {

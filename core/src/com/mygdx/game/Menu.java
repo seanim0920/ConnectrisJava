@@ -4,6 +4,7 @@ package com.mygdx.game;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
@@ -34,27 +35,29 @@ public class Menu implements Screen {
 
     private boolean moved = false;
     private int tiles = 0;
-    private int max = 500;
+    private int max = 100;
     private int flux = 0;
     private boolean end = false;
     private int step = 1;
+    private float brightness = 1;
 
-    private Sound gameover;
+    private Music gameover;
     private Sound thud;
     private Sound drop;
     private Sound twist;
     private Sound bust;
     private Random rng = new Random();
     //resources
+    private Array<Vector2> corners = new Array<Vector2>();
     private Pixmap pixmap;
     private Array<Texture> types = new Array<Texture>();
-    private Color[] colors = {Color.RED, Color.YELLOW, Color.GREEN, Color.CYAN, Color.BLUE, Color.MAGENTA};
+    private Color[] colors = {Color.RED, Color.YELLOW, Color.GREEN, Color.CYAN, new Color(0.25f,0.25f,1,1), Color.MAGENTA};
     private Texture square;
     private Texture cursor;
 
     //game variables
     private int score = 0;
-    private int waitTime = 1000;
+    private int waitTime = 1200;
     private long currentTime = 0;
     private long startTime = 0;
     private int tileSize = 154;
@@ -62,7 +65,7 @@ public class Menu implements Screen {
     private int next = 0; //next piece to drop
 
     //variables for the well
-    private int ceiling = 12;
+    private int ceiling = 11;
     private Tile[][] field;
 
     private Tile holding = null;
@@ -100,6 +103,7 @@ public class Menu implements Screen {
             next = 1;
         else
             next = 0;
+
         //System.out.println("THE NEXT PIECE IS OF TYPE " + next);
         Tile tile;
         if (current != null)
@@ -151,16 +155,20 @@ public class Menu implements Screen {
             }
 
             if (flux > 0) flux = flux - 2;
-            currentTime = currentTime + ((long)(Gdx.graphics.getDeltaTime()*1000)-(findFloor(tcolumn)+1));
+            currentTime = currentTime + ((long)(Gdx.graphics.getDeltaTime()*1000)-(findSpace(tcolumn)));
 
             if (currentTime - startTime >= waitTime) {
                 startTime = System.currentTimeMillis();
                 currentTime = startTime;
                 //if enough time has elapsed
                 if (tiles < max) {
-                    tiles++;
-                    place(current, tcolumn, findFloor(tcolumn));
-                    current = newTile();
+                    if (findFloor(tcolumn) <= ceiling) {
+                        tiles++;
+                        place(current, tcolumn, findFloor(tcolumn));
+                        current = newTile();
+                    } else {
+                        end = true;
+                    }
                 }
             }
 
@@ -234,6 +242,7 @@ public class Menu implements Screen {
                     touched = true;
                     lastTouchTime = System.currentTimeMillis();
                     holding = remove(x, y);
+                    holding.checked = false;
                     moved = false;
                     twist.play();
                     holding.rotate();
@@ -253,9 +262,8 @@ public class Menu implements Screen {
             if (holding != null && touched) {
                 int x = hcolumn;
                 int y = hrow;
-                if (moved || holding.height/tileSize > hrow) {
-                    x = tcolumn;
-                    y = findFloor(tcolumn);
+                if (moved || holding.height/tileSize > y) {
+                    y = findSpace(x);
                 }
                 place(holding, x, y);
                 holding = null;
@@ -265,7 +273,7 @@ public class Menu implements Screen {
     }
 
     private void checktion(int x, int y) {
-        if (field[x][y] != null && field[x][y].type > 0) {
+        if (field[x][y] != null) {
             Array<Tile> caught = new Array<Tile>();
             Array<Tile> visited = new Array<Tile>();
             Array<Vector2> stack = new Array<Vector2>();
@@ -275,12 +283,13 @@ public class Menu implements Screen {
                 Vector2 coord = stack.pop();
                 int x0 = (int) coord.x;
                 int y0 = (int) coord.y;
-                System.out.println("CHECKING TILE AT " + x0 + ", " + y0);
-                boolean open = false;
+                //System.out.println("CHECKING TILE AT " + x0 + ", " + y0);
+                boolean open = true;
                 if (field[x0][y0] != null) {
+                    field[x0][y0].checked = true;
                     for (int i = 0; i < 4; i++) {
                         if (field[x0][y0].sides[i]) {
-                            System.out.println("SIDE " + i + " IS OPEN");
+                            //System.out.println("SIDE " + i + " IS OPEN");
                             int x1 = 0;
                             int y1 = 0;
                             switch (i) {
@@ -303,79 +312,136 @@ public class Menu implements Screen {
                                 default:
                                     break;
                             }
-                            System.out.println("IS THERE A TILE AT " + x1 + ", " + y1 + "? ");
-                            if (x1 >= 0 && x1 < 7 && y1 >= 0 && y1 <= ceiling && field[x1][y1] != null && field[x1][y1].height == y1 * tileSize && field[x1][y1].sides[(i + 2) % 4]) {
-                                //System.out.println("YES");
-                                if (!visited.contains(field[x1][y1], true)) {
-                                    //System.out.println("WE HAVEN'T RECORDED THIS TILE YET, ADDING TO THE STACK");
-                                    stack.add(new Vector2(x1, y1));
-                                    visited.add(field[x1][y1]);
-                                    field[x1][y1].parent = field[x0][y0];
-                                } else if (field[x0][y0] != field[x1][y1].parent) {
-                                    Tile c = field[x0][y0];
-                                    while (c.parent != field[x1][y1]) {
-                                        //keep backing up until it reaches a corner piece
-                                        //check what direction it's in using the difference in positions
-                                        //check what direction is the corner piece's parent
-                                        //use that pattern (if the previous corner piece is above this and the next corner turns right, then cycle like that)
-                                        //once we have 3 corners in the same cycle, we can calculate the rectangle between them, and put those tiles in the captured/caught array
-                                        //repeat, if you find a curve going in the opposite direction, continue going back until the direction changes to this one, or we run into the start of the loop.
-                                        //if we run into the start of the loop, clear the caught array and repeat this process assuming the first vectors are convex, so the inverse basically. just keep going back until we find other corners in the "right" direction, then calculate the rectangles and add them to the array.
-                                        c = c.parent;
+                            //System.out.println("IS THERE A TILE AT " + x1 + ", " + y1 + "? ");
+                            if (x1 >= 0 && x1 < 7 && y1 >= 0 && y1 <= ceiling && field[x1][y1] != null && field[x1][y1].height == y1 * tileSize && field[x1][y1].angle % 90 == 0 && field[x1][y1].sides[(i + 2) % 4]) {
+                                if (field[x0][y0].type != 0 || field[x1][y1].type != 0) { //why does this work???
+                                    open = false;
+                                    //System.out.println("YES");
+                                    if (!visited.contains(field[x1][y1], true)) {
+                                        //System.out.println("WE HAVEN'T RECORDED THIS TILE YET, ADDING TO THE STACK");
+                                        stack.add(new Vector2(x1, y1));
+                                        field[x1][y1].xpos = x1 * tileSize;
+                                        visited.add(field[x1][y1]);
+                                        field[x1][y1].parent = new Vector2(x0, y0);
+                                    } else if (field[x0][y0].parent.x != x1 && field[x0][y0].parent.y != y1) {
+                                        System.out.println("FOUND A LOOP, PARENT OF " + x0 + ", " + y0 + " IS " + field[x0][y0].parent + "BUT IT'S ALSO CONNECTED TO " + x1 + ", " + y1);
+                                        Tile c = field[x0][y0];
+                                        Vector2 vch = new Vector2(x1, y1);
+                                        Vector2 vc = new Vector2(x0, y0);
+                                        Vector2 vp = c.parent;
+                                        while (c.parent.x >= 0 && c.parent.y >= 0 && field[(int) c.parent.x][(int) c.parent.y] != null) {
+                                            System.out.println("CHECKING IF " + c.parent.x + ", " + c.parent.y + " IS A CORNER");
+                                            vp = c.parent;
+                                            if (c.type == 0) {
+                                                caught.clear();
+                                                break;
+                                            } else if (((vch.x - vc.x != vc.x - vp.x) || vch.y - vc.y != vc.y - vp.y)) {
+                                                System.out.println("FOUND A CORNER");
+                                                corners.add(vc);
+                                                for (int col = 0; col <= vc.x; col++) {
+                                                    for (int row = 0; row <= vc.y; row++) {
+                                                        if (field[col][row] != null) {
+                                                            if (!caught.contains(field[col][row], true)) {
+                                                                field[col][row].xpos = col * tileSize;
+                                                                caught.add(field[col][row]);
+                                                            } else
+                                                                caught.removeValue(field[col][row], true);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            c = field[(int) c.parent.x][(int) c.parent.y];
+                                            vch = vc;
+                                            vc = vp;
+                                        }
+                                        vp = new Vector2(x1, y1);
+                                        System.out.println("CHECKING IF " + c.parent.x + ", " + c.parent.y + " IS A CORNER");
+                                        if (c.type == 0) {
+                                            caught.clear();
+                                            break;
+                                        } else if (((vch.x - vc.x != vc.x - vp.x) || vch.y - vc.y != vc.y - vp.y)) {
+                                            System.out.println("FOUND A CORNER");
+                                            corners.add(vc);
+                                            for (int col = 0; col < vc.x; col++) {
+                                                for (int row = 0; row < vc.y; row++) {
+                                                    if (field[col][row] != null && !visited.contains(field[col][row], true)) {
+                                                        if (!caught.contains(field[col][row], true))
+                                                            caught.add(field[col][row]);
+                                                        else
+                                                            caught.removeValue(field[col][row], true);
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             } else { //clear everything, the path is not valid
-                                //System.out.println("NO, NO PATH");
-                                stack.clear();
-                                open = true;
+                                /*
+                                if (x1 < 0 || x1 >= 7 || y1 < 0 || y1 > ceiling)
+                                    System.out.println("ONE SIDE IS OUT OF BOUNDS");
+                                else if (field[x1][y1] == null)
+                                    System.out.println("ONE SIDE IS NOT CONNECTED TO ANYTHING");
+                                else if (field[x1][y1].height != y1 * tileSize)
+                                    System.out.println("IT'S CONNECTED TO A PIECE BUT THAT PIECE IS STILL MOVING");
+                                else if (field[x1][y1].angle % 90 != 0)
+                                    System.out.println("IT'S CONNECTED TO A PIECE BUT THAT PIECE IS STILL SPINNING");
+                                else if (!field[x1][y1].sides[(i + 2) % 4])
+                                    System.out.println("IT'S CONNECTED TO A PIECE BUT THAT PIECE ISN'T CONNECTED TO THIS ONE");
+                                else if (field[x1][y1].type == 0)
+                                    System.out.println("IT'S CONNECTED TO A BLOCK");
+                                else
+                                    System.out.println("UNKNOWN ERROR");
+                                */
+
+                                if (field[x0][y0].type > 0) {
+                                    open = true;
+                                    break;
+                                } else if (!open)
+                                    break;
                             }
                         }
                     }
                     //System.out.println("FINISHED CHECKING TILE AT " + x0 + ", " + y0);
                 }
                 if (open) {
+                    stack.clear();
+                    caught.clear();
+                    for (int i = 0; i < visited.size; i++) {
+                        visited.get(i).parent = new Vector2(-1,-1);
+                    }
                     visited.clear();
                     break;
                 }
             }
             if (visited.size > 0) {
+                brightness = 0;
                 bust.play();
                 dframes = 10;
+                System.out.println(caught.size + " TILES ARE CAUGHT");
+                System.out.println(visited.size + " TILES ARE CONNECTED");
             }
-            System.out.println(visited.size + " TILES ARE CONNECTED");
             for (int i = 0; i < visited.size; i++) {
-                score = score + 10;
-                flux = flux + 100;
-                tiles--;
-                visited.get(i).xpos = x * tileSize;
+                if (caught.contains(visited.get(i), true)) caught.removeValue(visited.get(i), true);
+                if (visited.get(i).type > 0) {
+                    score = score + (i * 10);
+                    flux = flux + (score * 10);
+                }
+                waitTime--;
                 visited.get(i).connected = true;
             }
-            visited.clear();
+            for (int i = 0; i < caught.size; i++) {
+                System.out.println((caught.get(i).xpos / tileSize) + ", " + (caught.get(i).height / tileSize) + " IS CAUGHT");
+                score = score + (i * 20);
+                flux = flux + (score * 20);
+                caught.get(i).caught = true;
+            }
         }
     }
 
     private void drawHolding() {
         //draw the piece being held
         if (holding != null) {
-            game.batch.setColor(colors[holding.type].r, colors[holding.type].g, colors[holding.type].b, 0.5f*holding.transparency);
-            if (touched) {
-                int row = findFloor(hcolumn);
-                if (row > 0 && field[hcolumn][row - 1] != null && field[hcolumn][row - 1].height > ((row - 1) * tileSize) + (tileSize / 2)) {
-                    row = row - 1;
-                }
-                if (moved) {
-                    holding.height = row * tileSize;
-                } else if (field[hcolumn][hrow] != null && field[hcolumn][hrow].height < (hrow * tileSize) + (tileSize / 2)) {
-                    holding.height = holding.height + holding.velocity;
-                    if (holding.height < (row * tileSize)) {
-                        holding.velocity = (float) (((row * tileSize) - (hrow * tileSize)) / Math.sqrt(tileSize / 1.9f));
-                    } else {
-                        holding.velocity = 0;
-                        holding.height = row * tileSize;
-                        moved = true;
-                    }
-                }
-            }
+            game.batch.setColor(colors[holding.type].r, colors[holding.type].g, colors[holding.type].b, 0.5f*brightness);
             float time = (float) (System.currentTimeMillis() - holding.lastRotTime) / 200;
             if (time <= 1) {
                 holding.angle = new Interpolation.SwingOut(1.5f).apply((holding.dir - 1) * 90, holding.dir * 90, time);
@@ -383,58 +449,77 @@ public class Menu implements Screen {
                 holding.angle = holding.dir * 90;
             }
             if (touched) {
-                if (findFloor(tcolumn) < ceiling) hcolumn = tcolumn;
+                if (findFloor(tcolumn) <= ceiling) hcolumn = tcolumn;
                 game.batch.draw(new TextureRegion(types.get(holding.type)), tileSize * hcolumn, holding.height, (float) Math.ceil(tileSize / 2), (float) Math.ceil(tileSize / 2), tileSize, tileSize, 1, 1, holding.angle);
+                int row = findSpace(hcolumn);
+                holding.height = row * tileSize;
+                if (row == ceiling) {
+                    place(holding, hcolumn, row);
+                    holding = null;
+                }
             }
         }
     }
 
     private void drawField() {
         //draw the field
+        if (brightness < 1)
+            brightness = brightness + 0.05f;
         for (int x = 0; x < 7; x++) {
-            for (int y = 0; y < ceiling; y++) {
+            for (int y = ceiling; y >= 0; y--) {
+                //if (corners.contains(new Vector2(x, y), false))
+                    //game.batch.draw(new TextureRegion(square), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.2f, 0.2f, 0);
                 if (field[x][y] != null) {
                     Tile tile = field[x][y];
-                    if (tile.angle % 90 != 0) {
+                    game.batch.setColor(1,0,0,1-tile.opacity);
+                    game.batch.draw(new TextureRegion(square), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, 0);
+                    if (tile.opacity < 1)
+                        tile.opacity = tile.opacity + 0.05f;
+                    game.batch.setColor(colors[tile.type].r, colors[tile.type].g, colors[tile.type].b, brightness);
+                    if (tile.height != y * tileSize) {
+                        tile.checked = false;
+                        if (tile.height > y * tileSize) {
+                            if (tile.height - tile.velocity > y * tileSize) {
+                                tile.height = tile.height - tile.velocity;
+                                tile.velocity = tile.velocity + 1.9f;
+                            } else {
+                                tile.height = y * tileSize;
+                                tile.velocity = 0;
+                                if (y == findFloor(x) - 1)
+                                    drop.play();
+                            }
+                        } else {
+                            tile.height = tile.height + tile.velocity;
+                            if (tile.height < (y * tileSize)) {
+                                tile.velocity = tile.velocity + 1.9f;
+                            } else {
+                                tile.height = y * tileSize;
+                                tile.velocity = 0;
+                            }
+                        }
+                    } else if (!tile.checked) {
+                        if (y == ceiling) {
+                            for (int i = 0; i <= ceiling; i++) {
+                                if (field[x][i] != null) {
+                                    field[x][i].opacity = 0;
+                                }
+                            }
+                        }
                         float time = (float) (System.currentTimeMillis() - tile.lastRotTime) / 200;
                         if (time <= 1) {
+                            tile.checked = false;
                             tile.angle = new Interpolation.SwingOut(1.5f).apply((tile.dir - 1) * 90, tile.dir * 90, time);
-                        } else {
+                        } else if (!tile.checked) {
                             tile.angle = tile.dir * 90;
-                            tile.check = true;
-                        }
-                    }
-                    if (tile.transparency < 1) tile.transparency = tile.transparency + 0.05f;
-                    game.batch.setColor(colors[tile.type].r, colors[tile.type].g, colors[tile.type].b, tile.transparency);
-                    if (tile.height > y * tileSize) {
-                        tile.height = tile.height - tile.velocity;
-                        if (tile.height > (y * tileSize)) {
-                            tile.velocity = tile.velocity + 1.9f;
-                        } else {
-                            tile.height = y * tileSize;
-                            tile.velocity = 0;
-                            if (y == findFloor(x) - 1)
-                                drop.play();
-                            if (y >= ceiling) {
-                                end = true;
-                                gameover.play();
-                            }
-                            else
-                                checktion(x, y);
-                        }
-                    } else if (tile.height < (y * tileSize)) {
-                        tile.height = tile.height + tile.velocity;
-                        if (tile.height < (y * tileSize)) {
-                            tile.velocity = tile.velocity + 1.9f;
-                        } else {
-                            tile.height = y * tileSize;
-                            tile.velocity = 0;
                             checktion(x, y);
+                            if (tile.type == 0 && y == 0) {
+                                tile.xpos = x * tileSize;
+                                tile.caught = true;
+                                dframes = 10;
+                            }
                         }
                     }
                     game.batch.draw(new TextureRegion(types.get(tile.type)), tileSize * x, tile.height, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, tile.angle);
-                    if (tile.check)
-                        checktion(x, y);
                 }
             }
         }
@@ -450,20 +535,19 @@ public class Menu implements Screen {
         font.setColor(Color.WHITE);
         font.draw(game.batch, Integer.toString(score), tileSize / 10 + 4, (int) (game.camera.viewportHeight - tileSize / 5) + 4);
         game.batch.setColor(colors[current.type]);
-        startTime = startTime;
         float time = 1 - (float) (currentTime - startTime) / (float) waitTime;
-        game.batch.draw(cursor, tileSize * tcolumn, tileSize * (ceiling - 1.5f),            /* reposition to draw from half way up from the original sprite position */
+        game.batch.draw(cursor, tileSize * tcolumn, tileSize * (ceiling - 0.5f),            /* reposition to draw from half way up from the original sprite position */
                 tileSize / 2,
                 tileSize / 4,
                 (float) (tileSize * time),
-                tileSize / 2,
+                tileSize/2,
                 1,
                 1,
                 0,
                 0,
                 0,
                 (int) (tileSize * time),
-                tileSize / 2, /* only use the texture data from the top of the sprite */
+                tileSize, /* only use the texture data from the top of the sprite */
                 false,
                 false);
         game.batch.setColor(1, 1, 1, 1);
@@ -475,14 +559,25 @@ public class Menu implements Screen {
         for (int x = 0; x < 7; x++) {
             for (int y = 0; y < ceiling; y++) {
                 if (field[x][y] != null) {
-                    field[x][y].transparency = 0;
                     if (field[x][y].connected) {
-                        System.out.println("TILE AT " + x + ", " + y + " IS CONNECTED");
+                        //System.out.println("TILE AT " + x + ", " + y + " IS CONNECTED");
                         game.batch.draw(new TextureRegion(types.get(field[x][y].type)), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, field[x][y].angle);
                         if (dframes <= 1) {
-                            field[x][y].transparency = 1;
+                            field[x][y].opacity = 1;
+                            if (field[x][y].type > 0) {
+                                dblocks.add(remove(x, y));
+                                tiles--;
+                            }
+                            else
+                                field[x][y].connected = false;
+                            //System.out.println("ADDED TO DBLOCKS");
+                        }
+                    } else if (field[x][y].caught) {
+                        game.batch.draw(new TextureRegion(square), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, 0);
+                        if (dframes <= 1) {
+                            field[x][y].opacity = 1;
                             dblocks.add(remove(x, y));
-                            System.out.println("ADDED TO DBLOCKS");
+                            tiles--;
                         }
                     }
                 }
@@ -536,7 +631,7 @@ public class Menu implements Screen {
     }
 
     private int findFloor(int x) {
-        int y = 0;
+        int y = ceiling + 1;
         for (int i = 0; i <= ceiling; i++) {
             //add an offset there so that if the block is overlapping its spot by a certain amount, the floor will go above it
             if (field[x][i] == null) {
@@ -547,12 +642,19 @@ public class Menu implements Screen {
         return y;
     }
 
+    private int findSpace(int x) {
+        int i = findFloor(x);
+        for (int y = i - 1; y >= 0; y--) {
+            if (field[hcolumn][y] != null && field[hcolumn][y].height > ((y) * tileSize) + (tileSize / 2)) {
+                i = y;
+            }
+        }
+        return i;
+    }
+
     private void place(Tile tile, int x, int y) {
-        if (tile.angle % 90 == 0 && tile.height == y * tileSize)
-            tile.check = true;
         adjustColumn(x, y);
         field[x][y] = tile;
-        System.out.println("SOMETHING EXISTS HERE");
     }
 
     private Tile remove(int x, int y) {
@@ -566,26 +668,28 @@ public class Menu implements Screen {
         //show exploding pieces
         for (int i = 0; i < dblocks.size; i++) {
             Tile block = dblocks.get(i);
-            if (block.xpos < -tileSize || block.xpos > 1080 + tileSize || block.height < -tileSize || block.transparency <= 0) {
+            if (block.xpos < -tileSize || block.xpos > 1080 + tileSize || block.height < -tileSize || block.opacity <= 0) {
                 dblocks.removeIndex(i);
             } else {
-                block.transparency = block.transparency - 0.01f;
-                block.height = block.height - block.velocity;
-                block.velocity = block.velocity + block.height/tileSize;
-                block.xpos = block.xpos + ((rng.nextInt(2) - 1) * block.velocity) + (block.xpos/tileSize) - 3;
-                if (block.angle <= 0) {
-                    block.angle = block.angle + 1;
-                } else {
-                    block.angle = block.angle - 1;
+                block.opacity = block.opacity - 0.01f;
+                game.batch.setColor(1, 1, 1, block.opacity);
+                if (block.connected) {
+                    block.height = block.height - block.velocity;
+                    block.velocity = block.velocity + block.height / tileSize;
+                    block.xpos = block.xpos + ((rng.nextInt(2) - 1) * block.velocity) + (block.xpos / tileSize) - 3;
+                    if (block.angle <= 0) {
+                        block.angle = block.angle + 1;
+                    } else {
+                        block.angle = block.angle - 1;
+                    }
+                    game.batch.draw(new TextureRegion(square), block.xpos, block.height, tileSize / 2, tileSize / 2, tileSize / pScale, tileSize / pScale, 1, 1, block.angle);
                 }
-                game.batch.setColor(1, 1, 1, block.transparency);
-                game.batch.draw(new TextureRegion(square), block.xpos, block.height, tileSize / 2, tileSize / 2, tileSize / pScale, tileSize / pScale, 1, 1, block.angle);
             }
         }
     }
 
     private void prepare() {
-        gameover = Gdx.audio.newSound(Gdx.files.internal("gameover.wav"));
+        gameover = Gdx.audio.newMusic(Gdx.files.internal("gameover.wav"));
         thud = Gdx.audio.newSound(Gdx.files.internal("thud.wav"));
         drop = Gdx.audio.newSound(Gdx.files.internal("drop.wav"));
         twist = Gdx.audio.newSound(Gdx.files.internal("twist.wav"));
@@ -599,7 +703,7 @@ public class Menu implements Screen {
         pixmap = new Pixmap(200, 100, Pixmap.Format.RGBA8888); //try RGBA4444 later
         pixmap.setBlending(Pixmap.Blending.None);
         pixmap.setColor(Color.WHITE);
-        pixmap.fillTriangle(0, 0, half, 100, 200, 0);
+        pixmap.fillTriangle(0, 0, half, half, 200, 0);
         cursor = new Texture(pixmap);
 
         //making the "bare" tile
@@ -610,16 +714,16 @@ public class Menu implements Screen {
         square = new Texture(pixmap);
 
         //making the "box" tile
-        pixmap.setColor(Color.RED);
+        pixmap.setColor(Color.WHITE);
         pixmap.fill();
-        pixmap.setColor(Color.BLACK);
+        pixmap.setColor(Color.CLEAR);
         pixmap.fillRectangle(unit,unit,3*unit,3*unit);
-        pixmap.setColor(Color.RED);
+        pixmap.setColor(Color.WHITE);
         pixmap.fillTriangle(unit,2*unit,(int)(unit*1.5),half,unit,3*unit); //left
         pixmap.fillTriangle(4*unit,2*unit,(int)(unit*3.5),half,4*unit,3*unit); //right
         pixmap.fillTriangle(2*unit,unit,half,(int)(unit*1.5),3*unit,unit); //top
         pixmap.fillTriangle(2*unit,4*unit,half,(int)(3.5*unit),3*unit,4*unit); //bottom
-        pixmap.setColor(Color.BLACK);
+        pixmap.setColor(Color.CLEAR);
         pixmap.fillTriangle(0,2*unit,unit/2,half,0,3*unit); //left
         pixmap.fillTriangle(200,2*unit,(int)(unit*4.5f),half,200,3*unit); //right
         pixmap.fillTriangle(2*unit,0,half,unit/2,3*unit,0); //top
