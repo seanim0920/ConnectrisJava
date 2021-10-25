@@ -6,9 +6,11 @@ package com.mygdx.game;
 
 public class Tile {
     //for falling physics
+    protected float xpos = 0;
     protected float height = 1736;
     protected float velocity = 0;
 
+    protected float transparency = 0;
     protected int type = 0;
     protected float angle = 0;
     protected int dir = 0;
@@ -50,9 +52,9 @@ public class Tile {
         dir = (dir + 1) % 4;
         for (int i = 0; i < 4; i++) {
             sides[(i + 1) % 4] = temp[i];
-            if (sides[(i + 1) % 4]) {
-                System.out.println("SIDE " + ((i + 1) % 4) + " IS OPEN");
-            }
+            //if (sides[(i + 1) % 4]) {
+              //  System.out.println("SIDE " + ((i + 1) % 4) + " IS OPEN");
+            //}
         }
     }
 
