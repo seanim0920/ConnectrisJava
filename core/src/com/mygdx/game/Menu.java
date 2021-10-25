@@ -81,7 +81,7 @@ public class Menu implements Screen {
     private Tile newTile() {
         int type = next;
         previous = type;
-        next = rng.nextInt(7);
+        next = rng.nextInt(types.size);
         Tile tile;
         if (current != null)
             tile = new Tile(type, current.dir);
@@ -125,7 +125,8 @@ public class Menu implements Screen {
             //if enough time has elapsed
             if (System.currentTimeMillis() - startInterval >= waitTime) {
                 startInterval = System.currentTimeMillis();
-                dropPiece(current, tcolumn, ceiling);
+                field[tcolumn][ceiling] = null;
+                field[tcolumn][findFloor(tcolumn)] = current;
                 current = newTile();
             }
 
@@ -168,24 +169,16 @@ public class Menu implements Screen {
     public void drawField() {
         //draw the possible spots to drop it on
         if (holding != null) {
+            game.batch.setColor(1,1,1,0.5f);
             int x = (int) ((touchPos.x) / tileSize);
-            for (int y = 0; y <= ceiling; y++) {
-                if (field[x][y] == null || field[x][y].height != y * tileSize) {
-                    game.batch.draw(new TextureRegion(empty), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, 0);
-                    break;
-                }
-            }
-        }
-
-        //draw the held piece
-        if (holding != null) {
-            game.batch.draw(new TextureRegion(types.get(holding.type)), touchPos.x + offset.x, touchPos.y + offset.y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, holding.angle);
-            System.out.println("Current angle is: " + holding.angle + " trying to get from " + holding.dir * 90 + " to " + (holding.dir + 1) * 90);
+            holding.height = tileSize * findFloor(x);
+            game.batch.draw(new TextureRegion(types.get(holding.type)), (((holding.dir + 1) % 4) / 2) + tileSize * x, ((holding.dir) / 2) + holding.height, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, holding.angle);
+            //System.out.println("Current angle is: " + holding.angle + " trying to get from " + holding.dir * 90 + " to " + (holding.dir + 1) * 90);
             if (System.currentTimeMillis() - lastRotTime < 900) {
-                float time = (float) (System.currentTimeMillis() - lastRotTime) / 300;
-                System.out.println("Current time is: " + time);
+                float time = (float) (System.currentTimeMillis() - lastRotTime) / 250;
+                //System.out.println("Current time is: " + time);
                 if (time <= 1) {
-                    holding.angle = new Interpolation.SwingOut(2.5f).apply((holding.dir - 1) * 90, holding.dir * 90, time);
+                    holding.angle = new Interpolation.SwingOut(2f).apply((holding.dir - 1) * 90, holding.dir * 90, time);
                 } else {
                     holding.angle = holding.dir * 90;
                 }
@@ -194,6 +187,8 @@ public class Menu implements Screen {
                 holding.rotate();
             }
         }
+
+        game.batch.setColor(Color.WHITE);
 
         //draw the field
         for (int x = 0; x < 7; x++) {
@@ -206,7 +201,7 @@ public class Menu implements Screen {
                     } else if (tile.height < y * tileSize) {
                         tile.height = y * tileSize;
                         tile.velocity = 0;
-                        checktion(x, y);
+                        //checktion(x, y);
                     }
                     if (tile.connected) {
                         destroy(x, y);
@@ -218,24 +213,37 @@ public class Menu implements Screen {
         }
     }
 
-    public void dropPiece(Tile tile, int x, int y) {
-        //drop the current piece
-        boolean placed = false;
-        if (field[x][y] == tile) {
-            field[x][y] = null;
-        }
-        for (int i = ceiling - 1; i >= 0; i--) {
-            if (i > 0 && field[x][i - 1] != null && field[x][i - 1].height != (i - 1) * tileSize) {
-                field[x][i] = field[x][i - 1];
-                //System.out.println("Dropping on row: " + y);
-            }
-            if (field[x][i] == null) {
-                if (field[x][i + 1] == tile) {
-                    field[x][i + 1] = null;
+    public void adjustColumn(int x, int y) {
+        //takes all the pieces in the column starting from y and shifts them to the bottom starting at y
+        if (field[x][y] == null) {
+            //this executes when a tile is taken away, will move all the tiles above it downwards 1
+            for (int i = y + 1; i < ceiling; i++) {
+                if (field[x][i] != null) {
+                    field[x][i - 1] = field[x][i];
+                    field[x][i] = null;
                 }
-                field[x][i] = tile;
+            }
+        } else {
+            //execute this before placing a tile, will move all the tiles above it upwards 1
+            for (int i = ceiling; i > y; i--) {
+                if (field[x][i] == null) {
+                    field[x][i] = field[x][i - 1];
+                    field[x][i - 1] = null;
+                }
             }
         }
+    }
+
+    public int findFloor(int x) {
+        int y = 0;
+        for (int i = 0; i <= ceiling; i++) {
+            //add an offset there so that if the block is overlapping its spot by a certain amount, the floor will go above it
+            if (field[x][i] == null || field[x][i].height != i * tileSize) {
+                y = i;
+                break;
+            }
+        }
+        return y;
     }
 
     public void checkTouch() {
@@ -249,15 +257,11 @@ public class Menu implements Screen {
                 touched = true;
                 lastTouchTime = System.currentTimeMillis();
                 oldPos = touchPos.cpy();
-            } else if (holding == null) {
-                //this section only sets holding, make sure it doesn't need a value
+            } else if (holding == null && field[x][y] != null && field[x][y].height == y * tileSize) {
                 holding = field[x][y];
                 field[x][y] = null;
-                for (int i = y + 1; i < ceiling; i++) {
-                    if (field[x][i] != null) {
-                        dropPiece(field[x][i], x, i);
-                    }
-                }
+                adjustColumn(x, y);
+                //this section only sets holding, make sure it doesn't need a value
                 offset.set((x * tileSize) - touchPos.x,(y * tileSize) - touchPos.y);
                 //System.out.println("X OFFSET IS " + offset.x);
             }
@@ -270,7 +274,10 @@ public class Menu implements Screen {
         } else if (holding != null) {
             touched = false;
             holding.angle = holding.dir * 90;
-            dropPiece(holding, (int) ((touchPos.x) / tileSize), (int) ((touchPos.y) / tileSize));
+            int x = (int) ((touchPos.x) / tileSize);
+            int y = findFloor(x);
+            adjustColumn(x, y);
+            field[x][y] = holding;
             holding = null;
         }
     }
@@ -393,68 +400,89 @@ public class Menu implements Screen {
         //pixmap.fillRectangle(tileSize/10,tileSize/10,tileSize - tileSize/5,tileSize - tileSize/5);
         square = new Texture(pixmap);
 
-        //making the "box" tile
-        pixmap.setColor(Color.WHITE);
-        pixmap.fill();
-        pixmap.setColor(Color.RED);
-        pixmap.fillRectangle(tileSize/5,tileSize/5,tileSize - 2*tileSize/5,tileSize - 2*tileSize/5);
-        types.add(new Texture(pixmap));
+        int unit = (int)Math.floor(tileSize/5);
+        int half = (int)Math.floor(tileSize/2);
 
-        //making the "dot" tile
-        pixmap.setColor(Color.WHITE);
+        //making the "box" tile
+        pixmap.setColor(Color.RED);
         pixmap.fill();
-        pixmap.setColor(Color.ORANGE);
-        pixmap.fillRectangle(tileSize/5,tileSize/5,tileSize - 2*tileSize/5,tileSize - 2*tileSize/5);
         pixmap.setColor(Color.BLACK);
-        pixmap.fillRectangle(tileSize/2 - tileSize/10,tileSize/2 - tileSize/10,tileSize/5 + 1, tileSize/5 + 1);
+        pixmap.fillRectangle(unit,unit,3*unit,3*unit);
+        pixmap.setColor(Color.RED);
+        pixmap.fillCircle(half, 0, (int)Math.ceil(unit*1.5));
+        pixmap.fillCircle(half, tileSize, (int)Math.ceil(unit*1.5));
+        pixmap.fillCircle(0, half, (int)Math.ceil(unit*1.5));
+        pixmap.fillCircle(tileSize, half, (int)Math.ceil(unit*1.5));
+        pixmap.setColor(Color.BLACK);
+        pixmap.fillCircle(half, 0, unit/2);
+        pixmap.fillCircle(half, tileSize, unit/2);
+        pixmap.fillCircle(0, half, unit/2);
+        pixmap.fillCircle(tileSize, half, unit/2);
         types.add(new Texture(pixmap));
 
         //making the "i" tile
-        pixmap.setColor(Color.WHITE);
-        pixmap.fill();
         pixmap.setColor(Color.YELLOW);
-        pixmap.fillRectangle(tileSize/5,tileSize/5,tileSize - 2*tileSize/5,tileSize - 2*tileSize/5);
+        pixmap.fill();
         pixmap.setColor(Color.BLACK);
-        pixmap.fillRectangle(tileSize/2 - tileSize/10,tileSize/2 - tileSize/10,tileSize/5 + 1, tileSize/5 + 1);
-        pixmap.fillRectangle(tileSize/2-tileSize/10,0,tileSize/5 + 1,tileSize/2 + 1);
+        pixmap.fillRectangle(unit,unit,3*unit,3*unit);
+        pixmap.fillRectangle(2*unit,0,unit + 1,half + 1);
+        pixmap.setColor(Color.YELLOW);
+        pixmap.fillTriangle(half, 3*unit, 2*unit, 4*unit, 3*unit, 4*unit);
+        pixmap.fillTriangle(unit, 2*unit, unit, 3*unit, 2*unit, half);
+        pixmap.fillTriangle(4*unit, 2*unit, 4*unit, 3*unit, 3*unit, half);
+        pixmap.setColor(Color.BLACK);
+        pixmap.fillTriangle(half, 4*unit, 2*unit, 5*unit, 3*unit, 5*unit);
+        pixmap.fillTriangle(0, 2*unit, 0, 3*unit, unit, half);
+        pixmap.fillTriangle(5*unit, 2*unit, 5*unit, 3*unit, 4*unit, half);
         types.add(new Texture(pixmap));
 
         //making the "l" tile
-        pixmap.setColor(Color.WHITE);
-        pixmap.fill();
         pixmap.setColor(Color.GREEN);
-        pixmap.fillRectangle(tileSize/5,tileSize/5,tileSize - 2*tileSize/5,tileSize - 2*tileSize/5);
+        pixmap.fill();
         pixmap.setColor(Color.BLACK);
-        pixmap.fillRectangle(0,tileSize/2-tileSize/10,tileSize,tileSize/5 + 1);
+        pixmap.fillRectangle(unit,unit,3*unit,3*unit);
+        pixmap.fillRectangle(0,2*unit,tileSize,unit + 1);
+        pixmap.setColor(Color.GREEN);
+        pixmap.fillTriangle(half, 2*unit, 2*unit, unit, 3*unit, unit);
+        pixmap.fillTriangle(half, 3*unit, 2*unit, 4*unit, 3*unit, 4*unit);
+        pixmap.setColor(Color.BLACK);
+        pixmap.fillTriangle(half, unit, 2*unit, 0, 3*unit, 0);
+        pixmap.fillTriangle(half, 4*unit, 2*unit, 5*unit, 3*unit, 5*unit);
         types.add(new Texture(pixmap));
 
         //making the "r" tile
-        pixmap.setColor(Color.WHITE);
-        pixmap.fill();
         pixmap.setColor(Color.CYAN);
-        pixmap.fillRectangle(tileSize/5,tileSize/5,tileSize - 2*tileSize/5,tileSize - 2*tileSize/5);
+        pixmap.fill();
         pixmap.setColor(Color.BLACK);
-        pixmap.fillRectangle(tileSize/2 - tileSize/10,tileSize/2 - tileSize/10,tileSize/5 + 1, tileSize/5 + 1);
-        pixmap.fillRectangle(tileSize/2 - tileSize/10,0,tileSize/5 + 1,tileSize/2 + 1);
-        pixmap.fillRectangle(tileSize/2,tileSize/2-tileSize/10,tileSize/2 + 1,tileSize/5 + 1);
+        pixmap.fillRectangle(unit,unit,3*unit,3*unit);
+        pixmap.fillRectangle(2*unit,0,unit + 1,half + 1);
+        pixmap.fillRectangle(half,2*unit,half + 1,unit + 1);
+        pixmap.setColor(Color.CYAN);
+        pixmap.fillTriangle(half, 3*unit, 2*unit, 4*unit, 3*unit, 4*unit);
+        pixmap.fillTriangle(unit, 2*unit, unit, 3*unit, 2*unit, half);
+        pixmap.setColor(Color.BLACK);
+        pixmap.fillTriangle(half, 4*unit, 2*unit, 5*unit, 3*unit, 5*unit);
+        pixmap.fillTriangle(0, 2*unit, 0, 3*unit, unit, half);
         types.add(new Texture(pixmap));
 
         //making the "t" tile
-        pixmap.setColor(Color.WHITE);
+        pixmap.setColor(Color.BLUE);
         pixmap.fill();
-        pixmap.setColor(0.2f,0.2f,1,1);
-        pixmap.fillRectangle(tileSize/5,tileSize/5,tileSize - 2*tileSize/5,tileSize - 2*tileSize/5);
         pixmap.setColor(Color.BLACK);
-        pixmap.fillRectangle(tileSize/2-tileSize/10,0,tileSize/5 + 1,tileSize);
-        pixmap.fillRectangle(tileSize/2,tileSize/2-tileSize/10,tileSize/2 + 1,tileSize/5 + 1);
+        pixmap.fillRectangle(unit,unit,3*unit,3*unit);
+        pixmap.fillRectangle(2*unit,0,unit + 1,tileSize);
+        pixmap.fillRectangle(half,2*unit,half + 1,unit + 1);
+        pixmap.setColor(Color.BLUE);
+        pixmap.fillTriangle(unit, 2*unit, unit, 3*unit, 2*unit, half);
+        pixmap.setColor(Color.BLACK);
+        pixmap.fillTriangle(0, 2*unit, 0, 3*unit, unit, half);
         types.add(new Texture(pixmap));
 
         //making the "plus" tile
-        pixmap.setColor(Color.WHITE);
-        pixmap.fill();
         pixmap.setColor(Color.MAGENTA);
-        pixmap.fillRectangle(tileSize/5,tileSize/5,tileSize - 2*tileSize/5,tileSize - 2*tileSize/5);
+        pixmap.fill();
         pixmap.setColor(Color.BLACK);
+        pixmap.fillRectangle(tileSize/5,tileSize/5,tileSize - 2*tileSize/5,tileSize - 2*tileSize/5);
         pixmap.fillRectangle(tileSize/2-tileSize/10,0,tileSize/5 + 1,tileSize);
         pixmap.fillRectangle(0,tileSize/2-tileSize/10,tileSize,tileSize/5 + 1);
         types.add(new Texture(pixmap));
