@@ -1,6 +1,9 @@
 package com.mygdx.game;
 
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
+
+import java.awt.Color;
 
 /**
  * Created by admin on 7/19/2017.
@@ -9,14 +12,19 @@ import com.badlogic.gdx.math.Vector2;
 public class Tile {
     //for falling physics
     protected float xpos = 0;
-    protected float height = 1736;
+    protected float ypos = 1736;
     protected float velocity = 0;
 
+    protected boolean canMove = true;
     protected boolean checked = false;
     protected long lastRotTime;
-    protected Vector2 parent = new Vector2(-1,-1);
+    protected float lastDir = 0;
+    protected long lastMovTime;
+    protected float lastPos = 0;
+    protected Tile[] children = new Tile[4];
+    protected Tile parent = null;
     protected float opacity = 1;
-    protected int type = 0;
+    protected int type;
     protected float angle = 0;
     protected int dir = 0;
     protected boolean placed = false;
@@ -25,29 +33,36 @@ public class Tile {
     protected boolean destroyed = false;
     protected boolean falling = false;
     protected boolean[] sides = new boolean[4]; //contains the sides that are linked from 0 - 3 counter-clockwise starting from the top
+    protected int tileSize;
+    protected Vector2 coords = new Vector2();
 
-    public Tile(int type, int dir) {
-        this.dir = dir;
-        this.type = type;
+    public Tile(Type type) {
         switch (type) {
-            case 5:
-                sides[1] = true;
-            case 4:
-                sides[2] = true;
-            case 3:
-                sides[3] = true;
-            case 1:
-                sides[0] = true;
+            case p:
+                this.type = 4;
+                for (int i = 0; i < 4; i++)
+                    sides[i] = true;
                 break;
-            case 2:
-                sides[1] = true;
+            case t:
+                this.type = 3;
+                for (int i = 1; i < 4; i++)
+                    sides[i] = true;
+                break;
+            case r:
+                this.type = 2;
                 sides[3] = true;
+                sides[2] = true;
+                break;
+            case i:
+                this.type = 0;
+                sides[2] = true;
+                break;
+            case l:
+                this.type = 1;
+                sides[2] = true;
+                sides[0] = true;
                 break;
             default:
-                sides[0] = true;
-                sides[1] = true;
-                sides[2] = true;
-                sides[3] = true;
                 break;
         }
         for (int loop = 0; loop < dir; loop++) {
