@@ -10,6 +10,7 @@ import java.awt.Color;
  */
 
 public class Tile extends Object {
+    protected boolean landed = false;
     protected boolean canMove = true;
     protected boolean checked = false;
     protected long lastRotTime;
@@ -27,7 +28,7 @@ public class Tile extends Object {
     protected boolean falling = false;
     protected boolean[] sides = new boolean[4]; //contains the sides that are linked from 0 - 3 counter-clockwise starting from the top
     protected int tileSize;
-    protected Vector2 coords = new Vector2();
+    protected Vector2 coords = new Vector2(-1, -1);
 
     public Tile(Type type) {
         switch (type) {
@@ -71,7 +72,6 @@ public class Tile extends Object {
         }
     }
     public void rotate() {
-        checked = false;
         boolean[] temp = sides.clone();
         dir = (dir + 1) % 4;
         for (int i = 0; i < 4; i++) {
