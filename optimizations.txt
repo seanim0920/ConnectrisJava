@@ -1,2 +1,3 @@
+alternatively "connectrisspin"
 make all tiles from the same image file rather than separate files, crop parts of it using textureregion
 use global singleton enum to hold all global variables rather than passing Game on to new screens
