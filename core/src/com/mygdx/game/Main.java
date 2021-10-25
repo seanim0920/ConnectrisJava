@@ -35,6 +35,7 @@ class Main extends Game implements ApplicationListener {
     Vector3 touchPos = new Vector3();
 
 	Array<Texture> types = new Array<Texture>();
+	Texture pin;
 
 	Music music;
 	Sound drop;
@@ -52,7 +53,7 @@ class Main extends Game implements ApplicationListener {
 		batch = new SpriteBatch();
 		camera = new OrthographicCamera();
 		camera.setToOrtho(false, 1080, 1920);
-		this.tileSize = 150;
+		this.tileSize = 153;
 		this.setScreen(new Splash(this));
 		prefs = Gdx.app.getPreferences("My Preferences");
 		prefs.putBoolean("First", false);

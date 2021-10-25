@@ -34,6 +34,7 @@ public class Arcade extends Unit implements Screen {
     private Array<Vector2> corners = new Array<Vector2>();
     private int dframes = 0;
 
+    private float distance = 0;
     private int tiles = 0;
     private int max = 100;
     private int flux = 0;
@@ -46,6 +47,8 @@ public class Arcade extends Unit implements Screen {
     private float brightness = 1;
     private int hrow = 3;
     private int hcolumn = 3;
+    private int yoffset = 200;
+    private int xoffset = 0;
 
     private boolean held = false;
     protected Music gameover;
@@ -202,40 +205,49 @@ public class Arcade extends Unit implements Screen {
 
     public void processTouching(boolean changed) {
         int x = (int) ((touchPos.x) / tileSize);
-        int y = (int) ((touchPos.y) / tileSize);
-        if (y > ceiling)
+        int y = (int) ((touchPos.y - yoffset) / tileSize);
+        if (y >= ceiling)
             y = ceiling;
-        if (!held) {
+        if (touchPos.y >= yoffset) {
             holding = field[x][y];
             hrow = x;
             hcolumn = y;
+        } else if (!changed) {
+            distance = distance + (touchPos.x - oldPos.x);
         }
+        if (x > field.length)
+            x = field.length;
         tcolumn = x;
     }
 
-    public void processTouchend(boolean changed) {
-        int x = (int) ((touchPos.x) / tileSize);
-        int y = (int) ((touchPos.y) / tileSize);
-        if (!held) {
+    public void processNotouch(boolean changed) {
+        if (changed) {
             if (holding != null) {
+                holding.rotate();
                 if (holding.canMove) {
-                    held = true;
                     lastTouchTime = System.currentTimeMillis();
                     holding.checked = false;
                     game.twist.play();
                     //System.out.println("X OFFSET IS " + offset.x);
                 } else if (holding.opacity >= 1) {
-                    field[x][y].rotate();
-                    field[x][y].opacity = 0;
+                    holding.opacity = 0;
                     game.twist.play();
                 }
             }
-        } else if (changed) {
-            held = false;
-            holding.height = tileSize * findSpace(x);
-            remove(hrow, hcolumn);
-            place(holding, x, findSpace(x));
             holding = null;
+        }
+        if (Math.abs(distance) <= 5) {
+            if (distance % tileSize != 0) {
+                if ((Math.abs(distance) > Math.abs(distance / tileSize) * tileSize && Math.abs(distance + (touchPos.x - oldPos.x)) > Math.abs(distance / tileSize) * tileSize)) {
+                    distance = distance + (touchPos.x - oldPos.x);
+                } else {
+                    //do field manipulation stuff
+                    distance = 0;
+                    game.drop.play();
+                }
+            }
+        } else {
+            distance = distance - (Math.abs(distance)*(3/distance));
         }
     }
 
@@ -400,19 +412,26 @@ public class Arcade extends Unit implements Screen {
         //draw the field
         if (brightness < 1)
             brightness = brightness + 0.05f;
-        for (int x = 0; x < field.length; x++) {
+        int s = 0;
+        if (distance > 0)
+            s = (int)-Math.ceil((int)(distance / tileSize));
+        int e = field.length;
+        if (distance < 0)
+            e = field.length + (int)Math.ceil((int)(distance / tileSize));
+        for (int x = s; x < e; x++) {
             for (int y = ceiling; y >= 0; y--) {
                 if (corners.contains(new Vector2(x, y), false))
                     game.batch.draw(new TextureRegion(square), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.2f, 0.2f, 0);
-                if (field[x][y] != null) {
-                    Tile tile = field[x][y];
-                    game.batch.setColor(1,0,0,1-tile.opacity);
+                Tile tile;
+                tile = field[x%7][y];
+                if (tile != null) {
+                    game.batch.setColor(1, 0, 0, 1 - tile.opacity);
                     game.batch.draw(new TextureRegion(square), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, 0);
                     if (tile.opacity < 1)
                         tile.opacity = tile.opacity + 0.05f;
                     game.batch.setColor(colors[tile.type].r, colors[tile.type].g, colors[tile.type].b, brightness);
                     if (!tile.canMove)
-                        game.batch.setColor(colors[colors.length-1].r, colors[colors.length-1].g, colors[colors.length-1].b, brightness);
+                        game.batch.setColor(colors[colors.length - 1].r, colors[colors.length - 1].g, colors[colors.length - 1].b, brightness);
                     if (tile.height != y * tileSize) {
                         tile.checked = false;
                         if (tile.height > y * tileSize) {
@@ -459,21 +478,9 @@ public class Arcade extends Unit implements Screen {
                         }
                     }
                     if (tile == holding) {
-                        game.batch.draw(new TextureRegion(dot), tileSize * x, tile.height, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.2f, 0.2f, tile.angle);
                         game.batch.setColor(Color.WHITE);
                     }
-                    game.batch.draw(new TextureRegion(types.get(tile.type)), 90 + tileSize * x, 120 + tile.height, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, tile.angle);
-                    if (!held) {
-                        game.batch.setColor(Color.WHITE);
-                        game.batch.draw(new TextureRegion(dot), tileSize * x, tile.height, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.2f, 0.2f, tile.angle);
-                    }
-                } else if (held) {
-                    if (y == findSpace(x)) {
-                        game.batch.setColor(colors[holding.type].r, colors[holding.type].g, colors[holding.type].b, brightness);
-                        if (tcolumn == x)
-                            game.batch.setColor(Color.WHITE);
-                        game.batch.draw(new TextureRegion(dot), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.2f, 0.2f, 0);
-                    }
+                    game.batch.draw(new TextureRegion(types.get(tile.type)), distance + xoffset + tileSize * x, yoffset + tile.height, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, tile.angle);
                 }
             }
         }
@@ -503,12 +510,58 @@ public class Arcade extends Unit implements Screen {
                 false,
                 false);
         game.batch.setColor(1, 1, 1, 1);
+
+        //controls
+        game.batch.setColor(Color.WHITE);
+        game.batch.draw(new TextureRegion(square), 0, yoffset-5, (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5, 1, 1, 0);
+
+        for (int x = 0; x < field.length; x++) {
+            game.batch.draw(new TextureRegion(game.pin), (distance % tileSize) + tileSize*x + 15, 0, (tileSize / 2), (tileSize / 2), 4*(tileSize/5), tileSize, 1, 1, 0);
+        }
+        if (distance > 0) {
+            game.batch.draw(new TextureRegion(game.pin), (distance % tileSize) + tileSize*(-1) + 15, 0, (tileSize / 2), (tileSize / 2), 4*(tileSize/5), tileSize, 1, 1, 0);
+        } else {
+            game.batch.draw(new TextureRegion(game.pin), (distance % tileSize) + tileSize*(field.length) + 15, 0, (tileSize / 2), (tileSize / 2), 4*(tileSize/5), tileSize, 1, 1, 0);
+        }
+
+        if (Math.abs(distance) > tileSize) {
+            if (distance < 0 && findFloor(0) > 0) {
+                Tile[] temp = new Tile[findFloor(0)];
+                for (int y = findFloor(0); y >= 0; y--) {
+                    temp[y] = remove(0, y);
+                }
+                for (int x = 1; x < field.length; x++) {
+                    for (int y = ceiling; y >= 0; y--) {
+                        place(remove(x-1, y), x, y);
+                    }
+                }
+                for (int y = temp.length; y >= 0; y--) {
+                    place(temp[y], 0, y);
+                }
+                distance = distance + tileSize;
+            }
+            else if (distance > 0 && findFloor(field.length-1) > 0) {
+                Tile[] temp = new Tile[findFloor(field.length-1)];
+                for (int y = findFloor(field.length-1); y >= 0; y--) {
+                    temp[y] = remove(0, y);
+                }
+                for (int x = 0; x < field.length-1; x++) {
+                    for (int y = ceiling; y >= 0; y--) {
+                        place(remove(x+1, y), x, y);
+                    }
+                }
+                for (int y = temp.length; y >= 0; y--) {
+                    place(temp[y], 0, y);
+                }
+                distance = distance - tileSize;
+            }
+        }
     }
 
     private void drawConnected() {
         game.batch.setColor(Color.WHITE);
         dframes = dframes - 1;
-        for (int x = 0; x < 7; x++) {
+        for (int x = 0; x < field.length; x++) {
             for (int y = 0; y < ceiling; y++) {
                 if (field[x][y] != null) {
                     if (field[x][y].connected) {

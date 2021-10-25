@@ -20,6 +20,7 @@ class Load extends Thread {
         game.manager.load("images/r.png", Texture.class);
         game.manager.load("images/t.png", Texture.class);
         game.manager.load("images/p.png", Texture.class);
+        game.manager.load("images/pin.png", Texture.class);
         game.manager.load("drop.wav", Sound.class);
         game.manager.load("bust.wav", Sound.class);
         game.manager.load("twist.wav", Sound.class);
@@ -32,6 +33,7 @@ class Load extends Thread {
         game.types.add(game.manager.get("images/t.png", Texture.class));
         game.types.add(game.manager.get("images/p.png", Texture.class));
         game.types.add(game.manager.get("images/b.png", Texture.class));
+        game.pin = game.manager.get("images/pin.png", Texture.class);
         game.drop = game.manager.get("drop.wav", Sound.class);
         game.bust = game.manager.get("bust.wav", Sound.class);
         game.twist = game.manager.get("twist.wav", Sound.class);

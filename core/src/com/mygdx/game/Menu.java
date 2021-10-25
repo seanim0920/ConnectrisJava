@@ -75,7 +75,7 @@ public class Menu extends Unit implements Screen {
         }
     }
 
-    public void processTouchend(boolean changed) {
+    public void processNotouch(boolean changed) {
         if (changed && button.rectangle.contains(touchPos.x, touchPos.y)) {
             game.setScreen(game.play);
         }

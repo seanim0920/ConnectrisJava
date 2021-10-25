@@ -21,7 +21,8 @@ public abstract class Unit implements Screen {
     public Texture square;
     public boolean touched = false;
     public Vector3 touchPos = new Vector3();
-    public Tile[][] field = new Tile[6][12];
+    public Vector3 oldPos = new Vector3();
+    public Tile[][] field = new Tile[7][12];
     public OrthographicCamera camera;
     public boolean moved = false;
     public int hcolumn = 3;
@@ -35,7 +36,7 @@ public abstract class Unit implements Screen {
     public Tile holding = null;
 
     public Array<Texture> types = new Array<Texture>();
-    public Color[] colors = {Color.ORANGE, Color.YELLOW, Color.GREEN, Color.CYAN, Color.MAGENTA, Color.RED};
+    public Color[] colors = {Color.YELLOW, Color.GREEN, Color.BLUE, Color.CYAN, Color.MAGENTA, Color.RED};
 
     public Unit(final Main game) {
         this.game = game;
@@ -107,12 +108,13 @@ public abstract class Unit implements Screen {
                     touched = true;
                     processTouching(true);
                 }
+                oldPos = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0));
             } else {
                 if (!touched) {
-                    processTouchend(false);
+                    processNotouch(false);
                 } else {
                     touched = false;
-                    processTouchend(true);
+                    processNotouch(true);
                 }
             }
         }
@@ -121,7 +123,7 @@ public abstract class Unit implements Screen {
     public void processTouching(boolean changed) {
     }
 
-    public void processTouchend(boolean changed) {
+    public void processNotouch(boolean changed) {
     }
 
     public void process() {
