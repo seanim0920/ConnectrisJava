@@ -72,7 +72,7 @@ public class Death extends Arcade implements Screen {
     private Array<Tile> dblocks = new Array<Tile>();
 
     public Death(final Main game, final Tile[][] field) {
-        super(game, game.music);
+        super(game);
         this.field = field;
 
         parameter.size = 150;
@@ -111,6 +111,8 @@ public class Death extends Arcade implements Screen {
 
         drawField();
 
+        processTouch();
+
         game.batch.end();
     }
 
@@ -136,7 +138,9 @@ public class Death extends Arcade implements Screen {
 
     @Override
     public void dispose() {
-        game.types.dispose();
+        for (int i = 0; i < types.size; i++) {
+            types.get(i).dispose();
+        }
         generator.dispose();
         drop.dispose();
         thud.dispose();
@@ -147,7 +151,7 @@ public class Death extends Arcade implements Screen {
 
     private void drawPause() {
         game.batch.setColor(Color.WHITE);
-        game.batch.draw(new TextureRegion(game.pixel), 0, game.camera.viewportHeight - tileSize, (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, tileSize, 1, 1, 0);
+        game.batch.draw(new TextureRegion(square), 0, game.camera.viewportHeight - tileSize, (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, tileSize, 1, 1, 0);
         font.setColor(Color.BLACK);
         font.draw(game.batch, "PAUSED", tileSize/10 + 4, (int)(game.camera.viewportHeight - tileSize/5) + 4);
 
@@ -181,15 +185,15 @@ public class Death extends Arcade implements Screen {
                     Tile tile = field[x][y];
                     game.batch.setColor(colors[tile.type].r, colors[tile.type].g, colors[tile.type].b, 1);
                     int height = (y - step) * tileSize;
-                    if (tile.ypos > height) {
+                    if (tile.height > height) {
                         falling = true;
-                        tile.ypos = tile.ypos - tile.velocity;
+                        tile.height = tile.height - tile.velocity;
                         tile.velocity = tile.velocity + 1.9f;
-                    } else if (tile.ypos < height) {
-                        tile.ypos = height;
+                    } else if (tile.height < height) {
+                        tile.height = height;
                         tile.velocity = 0;
                     }
-                    game.batch.draw(new TextureRegion(game.pixel), tileSize * x, 100, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, tile.angle);
+                    game.batch.draw(new TextureRegion(types.get(tile.type)), tileSize * x, tile.height, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, tile.angle);
                 }
             }
         }
@@ -201,9 +205,9 @@ public class Death extends Arcade implements Screen {
             if (step <= ceiling)
                 step++;
             else if (Gdx.input.isTouched() && touchPos.y < tileSize * 8)
-                game.setScreen(game.play);
+                game.setScreen(new Arcade(game));
             else if (Gdx.input.isTouched() && touchPos.y < tileSize * 10)
-                game.setScreen(game.play);
+                game.setScreen(new Menu(game));
         } else {
             label.velocity = label.velocity + 1.5f;
             label.ypos = label.ypos - label.velocity;
