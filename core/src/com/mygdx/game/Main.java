@@ -55,9 +55,11 @@ class Main extends Game implements ApplicationListener {
 		pixmap.fill();
 		pixel = new Texture(pixmap);
 		batch = new SpriteBatch();
+        batch.setColor(Color.WHITE);
 		camera = new OrthographicCamera();
 		camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-		this.tileSize = 160;
+		//this.tileSize = (int)camera.viewportHeight/(int)Math.floor(camera.viewportHeight/160);
+        this.tileSize = 160;
 		this.setScreen(new Splash(this));
 		prefs = Gdx.app.getPreferences("My Preferences");
 		prefs.putBoolean("First", false);

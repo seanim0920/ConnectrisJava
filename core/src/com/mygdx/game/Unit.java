@@ -85,24 +85,11 @@ public abstract class Unit implements Screen {
 
         process();
 
-        game.batch.setColor(Color.WHITE);
-        game.batch.draw(new TextureRegion(game.pixel), 0, game.camera.viewportHeight - (tileSize + 5), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, tileSize / 7, 1, 1, 0);
-        game.batch.setColor(Color.BLACK);
-        game.batch.draw(new TextureRegion(game.pixel), 0, (game.camera.viewportHeight - tileSize), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5 * tileSize / 5, 1, 1, 0);
-        game.batch.setColor(Color.WHITE);
-
         drawText();
 
         game.batch.setColor(1, 1, 1, 1);
 
         game.batch.end();
-
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-
-        drawShape();
-
-        Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
     public void drawShape() {

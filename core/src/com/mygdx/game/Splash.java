@@ -36,11 +36,11 @@ public class Splash implements Screen {
 
     public Splash(final Main game) {
         this.game = game;
-        generator = new FreeTypeFontGenerator(Gdx.files.internal("font.otf"));
+        generator = new FreeTypeFontGenerator(Gdx.files.internal("font.ttf"));
         parameter.color = Color.WHITE;
         parameter.size = 120;
         game.header = generator.generateFont(parameter);
-        y = game.tileSize * 12;
+        y = game.tileSize * 11;
         new Load().run(game);
     }
 
