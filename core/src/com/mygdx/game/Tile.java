@@ -9,18 +9,11 @@ import java.awt.Color;
  * Created by admin on 7/19/2017.
  */
 
-public class Tile {
-    //for falling physics
-    protected float xpos = 0;
-    protected float ypos = 1736;
-    protected float velocity = 0;
-
+public class Tile extends Object {
     protected boolean canMove = true;
     protected boolean checked = false;
     protected long lastRotTime;
     protected float lastDir = 0;
-    protected long lastMovTime;
-    protected float lastPos = 0;
     protected Tile[] children = new Tile[4];
     protected Tile parent = null;
     protected float opacity = 1;

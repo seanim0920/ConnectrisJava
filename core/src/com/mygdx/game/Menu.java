@@ -40,7 +40,6 @@ public class Menu extends Unit {
     public void drawText() {
         button.font.draw(game.batch, button.layout, button.xpos, button.ypos);
         title.font.draw(game.batch, title.layout, title.xpos, title.ypos);
-        float time = (float) (System.currentTimeMillis() - title.lastTime) / 300;
     }
 
     public void process() {

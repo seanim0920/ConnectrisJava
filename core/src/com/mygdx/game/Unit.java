@@ -81,8 +81,6 @@ public abstract class Unit implements Screen {
 
         checkTouch();
 
-        drawShape();
-
         game.batch.begin();
 
         process();
@@ -98,6 +96,8 @@ public abstract class Unit implements Screen {
         game.batch.setColor(1, 1, 1, 1);
 
         game.batch.end();
+
+        drawShape();
     }
 
     public void drawShape() {

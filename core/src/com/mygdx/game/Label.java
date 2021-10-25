@@ -5,7 +5,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.math.Rectangle;
 
-public class Label {
+public class Label extends Object {
     //for falling physics
     protected BitmapFont font;
     protected Rectangle rectangle;
@@ -13,10 +13,6 @@ public class Label {
     protected float width;
     protected float height;
     protected String text;
-    protected float xpos = 0;
-    protected float ypos = 1736;
-    protected float velocity = 0;
-    protected long lastTime;
 
     protected float opacity = 1;
 
