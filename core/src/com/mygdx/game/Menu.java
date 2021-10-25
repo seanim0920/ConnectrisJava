@@ -8,7 +8,7 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.utils.Array;
 import com.mygdx.game.Label;
 
-public class Menu extends Main implements Screen {
+public class Menu extends Unit implements Screen {
     public Main game;
     Label title;
     Label button;
@@ -18,31 +18,36 @@ public class Menu extends Main implements Screen {
     long startTime = System.currentTimeMillis();
     private boolean held = false;
 
-    public Menu() {
+    public Menu(final Main game) {
+        super(game);
         generator = new FreeTypeFontGenerator(Gdx.files.internal("font.otf"));
         parameter.color = Color.WHITE;
         parameter.size = 75;
-        font = generator.generateFont(parameter); // font size 12 pixels
 
-        title = new Label("CONNECTRIS", font);
-        title.ypos = camera.viewportHeight;
-        title.xpos = title.center(camera);
+        title = new Label("CONNECTRIS", game.header);
+        title.ypos = game.camera.viewportHeight;
+        title.xpos = title.center(game.camera);
         parameter.borderColor = Color.WHITE;
         parameter.color = Color.BLACK;
         parameter.borderWidth = 5;
         outline = generator.generateFont(parameter);
     }
 
+    @Override
+    public void show() {
+
+    }
+
     public void drawText() {
-        button.font.draw(batch, button.layout, button.xpos, button.ypos);
-        title.font.draw(batch, title.layout, title.xpos, title.ypos);
+        button.font.draw(game.batch, button.layout, button.xpos, button.ypos);
+        title.font.draw(game.batch, title.layout, title.xpos, title.ypos);
         float time = (float) (System.currentTimeMillis() - title.lastTime) / 300;
     }
 
     public void process() {
-        button = new Label("PLAY", font);
+        button = new Label("PLAY", game.header);
         button.ypos = tileSize * 6;
-        button.xpos = button.center(camera);
+        button.xpos = button.center(game.camera);
         button.rectangle.x = (int)button.xpos;
         button.rectangle.y = (int)button.ypos;
     }
@@ -52,7 +57,7 @@ public class Menu extends Main implements Screen {
 
     public void processNotouch(boolean changed) {
         if (changed && button.rectangle.contains(touchPos.x, touchPos.y)) {
-            setScreen(play);
+            game.setScreen(game.play);
         }
     }
 
@@ -72,21 +77,14 @@ public class Menu extends Main implements Screen {
     }
 
     @Override
-    public void render(float delta) {
-
-    }
-
-    @Override
-    public void show() {
-    }
-
-    @Override
     public void hide() {
+
     }
 
     @Override
     public void dispose() {
         generator.dispose();
         outline.dispose();
+        game.header.dispose();
     }
 }

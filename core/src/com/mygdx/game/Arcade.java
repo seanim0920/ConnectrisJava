@@ -5,7 +5,6 @@
 
 package com.mygdx.game;
 
-import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.audio.Music;
@@ -28,19 +27,10 @@ import java.util.Random;
  * Created by admin on 7/27/2017.
  */
 
-public class Arcade extends Main implements Screen {
+public class Arcade extends Unit implements Screen {
     FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
     BitmapFont font;
 
-    public int ceiling = 9;
-    public Tile[][] field = new Tile[6][ceiling+1];
-    public boolean moved = false;
-    public int tcolumn = 3;
-    public Tile holding = null;
-    public int hcolumn = 3;
-    public int hrow = 0;
-
-    private Main game;
     private Array<Tile> corners = new Array<Tile>();
 
     private int dframes = 0;
@@ -115,9 +105,20 @@ public class Arcade extends Main implements Screen {
         return tile;
     }
 
-    public Arcade() {
+    public Arcade(final Main game, final Music music) {
+        super(game);
         prepare();
+
+        generator = new FreeTypeFontGenerator(Gdx.files.internal("font.otf"));
+        parameter.size = 150;
+        parameter.color = Color.WHITE;
+        font = generator.generateFont(parameter); // font size 12 pixels
         music.play();
+    }
+
+    @Override
+    public void show() {
+
     }
 
     public void process() {
@@ -130,7 +131,7 @@ public class Arcade extends Main implements Screen {
                     drawConnected();
                 }
             } else {
-                setScreen(new Death(field));
+                game.setScreen(new Death(game, field));
             }
 
             if (flux > 0) flux = flux - 2;
@@ -158,6 +159,7 @@ public class Arcade extends Main implements Screen {
 
     @Override
     public void resize(int width, int height) {
+
     }
 
     @Override
@@ -171,105 +173,84 @@ public class Arcade extends Main implements Screen {
     }
 
     @Override
+    public void hide() {
+
+    }
+
+    @Override
     public void dispose() {
     }
 
-    @Override
-    public void render(float delta) {
-    }
-
-    @Override
-    public void show() {
-    }
-
-    @Override
-    public void hide() {
-    }
-
     private void drawPause() {
+        game.batch.setColor(Color.WHITE);
+        game.batch.draw(new TextureRegion(game.pixel), 0, game.camera.viewportHeight - tileSize, (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, tileSize, 1, 1, 0);
+        font.setColor(Color.BLACK);
+        font.draw(game.batch, "PAUSED", tileSize/10 + 4, (int)(game.camera.viewportHeight - tileSize/5) + 4);
+
+        font.setColor(Color.WHITE);
+        font.draw(game.batch, "RESTART", tileSize/10, (int)(game.camera.viewportHeight - (3*tileSize)));
+
+        font.setColor(Color.WHITE);
+        font.draw(game.batch, "RESUME", tileSize/10, (int)(game.camera.viewportHeight - (5*tileSize)));
+
+        font.setColor(Color.WHITE);
+        font.draw(game.batch, "QUIT", tileSize/10, (int)(game.camera.viewportHeight - (7*tileSize)));
+
+        if (touchPos.x > tileSize/10) resume();
         //restart
         //resume
         //quit
     }
 
-    @Override
-    public void processTouching(boolean touching, boolean changed) {
+
+    public void processTouching(boolean changed) {
         int x = (int) ((touchPos.x - xoffset) / tileSize);
         int y = (int) ((touchPos.y - yoffset) / tileSize);
-        if (touching) {
-            if (y >= ceiling)
-                y = ceiling;
-            speed = speed + 0.1f;
-            if (changed) {
-                ospeed = speed;
-                if (tcolumn != x) {
-                    moved = true;
-                } else {
+        if (y >= ceiling)
+            y = ceiling;
+        speed = speed + 0.1f;
+        if (changed) {
+            ospeed = speed;
+            if (tcolumn != x) {
+                moved = true;
+            } else {
+                moved = false;
+            }
+        }
+        //if touch is within range
+        if (holding == null) {
+            if (field[x][y] != null && field[x][y].ypos == y * tileSize) {
+                if (field[x][y].type > 0) {
+                    lastTouchTime = System.currentTimeMillis();
+                    holding = remove(x, y);
+                    holding.checked = false;
                     moved = false;
+                    game.twist.play();
+                    //this section only sets holding, make sure it doesn't need a value
+                    hrow = y;
+                    hcolumn = x;
+                    //System.out.println("X OFFSET IS " + offset.x);
+                } else if (field[x][y].opacity >= 1) {
+                    field[x][y].opacity = 0;
+                    game.danger.play();
                 }
             }
-            //if touch is within range
-            if (holding == null) {
-                if (field[x][y] != null && field[x][y].ypos == y * tileSize) {
-                    if (field[x][y].canMove) {
-                        current.rotate();
-                        lastTouchTime = System.currentTimeMillis();
-                        holding.checked = false;
-                        moved = false;
-                        game.twist.play();
-                        //this section only sets holding, make sure it doesn't need a value
-                        hrow = y;
-                        hcolumn = x;
-                        //System.out.println("X OFFSET IS " + offset.x);
-                    } else if (field[x][y].opacity >= 1) {
-                        field[x][y].opacity = 0;
-                        game.danger.play();
-                    }
-                }
-            }
-        } else if (changed) {
+        }
+    }
+
+    public void processNotouch(boolean changed) {
+        int x = (int) ((touchPos.x - xoffset) / tileSize);
+        int y = (int) ((touchPos.y - yoffset) / tileSize);
+        if (changed) {
             if (x >= 0 && x < field.length) {
                 if (getTile(new Vector2(x, current.ypos / tileSize)) == null) {
                     current.lastPos = tcolumn * tileSize;
                     current.lastMovTime = System.currentTimeMillis();
                 }
             }
+            current.rotate();
             moved = false;
             speed = ospeed;
-        }
-    }
-
-
-    public void place(Tile tile, int x, int y) {
-        tile.xpos = x * tileSize;
-        tile.ypos = y * tileSize;
-        tile.coords.set(x, y);
-        tile.placed = true;
-        adjustColumn(x, y);
-        field[x][y] = tile;
-    }
-
-    public Tile remove(int x, int y) {
-        Tile tile = field[x][y];
-        field[x][y] = null;
-        adjustColumn(x, y);
-        return tile;
-    }
-
-    public void adjustColumn(int x, int y) {
-        //takes all the pieces in the column starting from y and shifts them to the bottom starting at y
-        if (field[x][y] == null) {
-            //this executes when a tile is taken away, will move all the tiles above it downwards 1
-            for (int i = y + 1; i <= ceiling; i++) {
-                field[x][i - 1] = field[x][i];
-                field[x][i] = null;
-            }
-        } else {
-            //execute this before placing a tile, will move all the tiles above it upwards 1
-            for (int i = ceiling; i > y; i--) {
-                field[x][i] = field[x][i - 1];
-                field[x][i - 1] = null;
-            }
         }
     }
 
@@ -377,28 +358,6 @@ public class Arcade extends Main implements Screen {
             flux = flux + (score * 25);
             caught.get(i).caught = true;
         }
-    }
-
-    public int findFloor(int x) {
-        int y = ceiling + 1;
-        for (int i = 0; i <= ceiling; i++) {
-            //add an offset there so that if the block is overlapping its spot by a certain amount, the floor will go above it
-            if (field[x][i] == null) {
-                y = i;
-                break;
-            }
-        }
-        return y;
-    }
-
-    public int findSpace(int x) {
-        int i = findFloor(x);
-        for (int y = i - 1; y >= 0; y--) {
-            if (field[hcolumn][y] != null && field[hcolumn][y].ypos > ((y) * tileSize) + (tileSize / 2)) {
-                i = y;
-            }
-        }
-        return i;
     }
 
     private void updateTile(int x, int y) {
@@ -609,21 +568,5 @@ public class Arcade extends Main implements Screen {
         pixmap.dispose();
 
         current = newTile();
-    }
-
-    public Tile getTile(Vector2 coords) {
-        if (coords.y > ceiling)
-            return null;
-        if (coords.y < 0) {
-            if (coords.x % 2 == 0)
-                return field[(int)coords.x + 1][0];
-            else
-                return field[(int)coords.x - 1][0];
-        }
-        if (coords.x < 0)
-            return field[field.length - 1][(int)coords.y];
-        if (coords.x >= field.length)
-            return field[0][(int)coords.y];
-        return field[(int)coords.x][(int)coords.y];
     }
 }

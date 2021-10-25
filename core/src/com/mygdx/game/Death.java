@@ -71,7 +71,8 @@ public class Death extends Arcade implements Screen {
     //for destroyed blocks
     private Array<Tile> dblocks = new Array<Tile>();
 
-    public Death(final Tile[][] field) {
+    public Death(final Main game, final Tile[][] field) {
+        super(game, game.music);
         this.field = field;
 
         parameter.size = 150;
@@ -84,10 +85,10 @@ public class Death extends Arcade implements Screen {
         label2 = new Label(Integer.toString(score), font);
         label3 = new Label("RESTART", font);
         label4 = new Label("MENU", font);
-        label.ypos = camera.viewportHeight + (tileSize * 11);
-        label2.ypos = camera.viewportHeight + (tileSize * 9);
-        label3.ypos = camera.viewportHeight + (tileSize * 7);
-        label4.ypos = camera.viewportHeight + (tileSize * 5);
+        label.ypos = game.camera.viewportHeight + (tileSize * 11);
+        label2.ypos = game.camera.viewportHeight + (tileSize * 9);
+        label3.ypos = game.camera.viewportHeight + (tileSize * 7);
+        label4.ypos = game.camera.viewportHeight + (tileSize * 5);
     }
 
     @Override
@@ -97,6 +98,22 @@ public class Death extends Arcade implements Screen {
 
     @Override
     public void render(float delta) {
+        Gdx.gl.glClearColor(0, 0, 0, 1);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        game.camera.update();
+
+        game.batch.setProjectionMatrix(game.camera.combined);
+
+        game.batch.begin();
+
+        game.batch.setColor(1, 1, 1, 1);
+
+        drawField();
+
+        processTouch();
+
+        game.batch.end();
     }
 
     @Override
@@ -121,7 +138,7 @@ public class Death extends Arcade implements Screen {
 
     @Override
     public void dispose() {
-        types.dispose();
+        game.types.dispose();
         generator.dispose();
         drop.dispose();
         thud.dispose();
@@ -130,20 +147,41 @@ public class Death extends Arcade implements Screen {
         font.dispose();
     }
 
+    private void drawPause() {
+        game.batch.setColor(Color.WHITE);
+        game.batch.draw(new TextureRegion(game.pixel), 0, game.camera.viewportHeight - tileSize, (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, tileSize, 1, 1, 0);
+        font.setColor(Color.BLACK);
+        font.draw(game.batch, "PAUSED", tileSize/10 + 4, (int)(game.camera.viewportHeight - tileSize/5) + 4);
+
+        font.setColor(Color.WHITE);
+        font.draw(game.batch, "RESTART", tileSize/10, (int)(game.camera.viewportHeight - (3*tileSize)));
+
+        font.setColor(Color.WHITE);
+        font.draw(game.batch, "RESUME", tileSize/10, (int)(game.camera.viewportHeight - (5*tileSize)));
+
+        font.setColor(Color.WHITE);
+        font.draw(game.batch, "QUIT", tileSize/10, (int)(game.camera.viewportHeight - (7*tileSize)));
+
+        if (touchPos.x > tileSize/10) resume();
+        //restart
+        //resume
+        //quit
+    }
+
     private void drawField() {
         //draw the field
         font.setColor(Color.WHITE);
-        font.draw(batch, label.layout, (camera.viewportWidth - label.width) / 2, label.ypos);
-        font.draw(batch, label2.layout, (camera.viewportWidth - label2.width) / 2, label2.ypos);
-        font.draw(batch, label3.layout, (camera.viewportWidth - label3.width) / 2, label3.ypos);
-        font.draw(batch, label4.layout, (camera.viewportWidth - label4.width) / 2, label4.ypos);
+        font.draw(game.batch, label.layout, (game.camera.viewportWidth - label.width) / 2, label.ypos);
+        font.draw(game.batch, label2.layout, (game.camera.viewportWidth - label2.width) / 2, label2.ypos);
+        font.draw(game.batch, label3.layout, (game.camera.viewportWidth - label3.width) / 2, label3.ypos);
+        font.draw(game.batch, label4.layout, (game.camera.viewportWidth - label4.width) / 2, label4.ypos);
         boolean falling = false;
         //draw the field
         for (int x = 0; x < 7; x++) {
             for (int y = 0; y <= ceiling; y++) {
                 if (field[x][y] != null) {
                     Tile tile = field[x][y];
-                    batch.setColor(colors[tile.type].r, colors[tile.type].g, colors[tile.type].b, 1);
+                    game.batch.setColor(colors[tile.type].r, colors[tile.type].g, colors[tile.type].b, 1);
                     int height = (y - step) * tileSize;
                     if (tile.ypos > height) {
                         falling = true;
@@ -153,7 +191,7 @@ public class Death extends Arcade implements Screen {
                         tile.ypos = height;
                         tile.velocity = 0;
                     }
-                    batch.draw(new TextureRegion(pixel), tileSize * x, 100, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, tile.angle);
+                    game.batch.draw(new TextureRegion(game.pixel), tileSize * x, 100, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, tile.angle);
                 }
             }
         }
@@ -165,9 +203,9 @@ public class Death extends Arcade implements Screen {
             if (step <= ceiling)
                 step++;
             else if (Gdx.input.isTouched() && touchPos.y < tileSize * 8)
-                setScreen(play);
+                game.setScreen(game.play);
             else if (Gdx.input.isTouched() && touchPos.y < tileSize * 10)
-                setScreen(menu);
+                game.setScreen(game.play);
         } else {
             label.velocity = label.velocity + 1.5f;
             label.ypos = label.ypos - label.velocity;
