@@ -3,12 +3,9 @@ package com.mygdx.game;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
-import com.badlogic.gdx.math.Rectangle;
 
 public class Label {
     //for falling physics
-    protected BitmapFont font;
-    protected Rectangle rectangle;
     protected GlyphLayout layout;
     protected float width;
     protected float height;
@@ -25,8 +22,6 @@ public class Label {
         this.layout = new GlyphLayout(font, text);
         this.width = layout.width;
         this.height = layout.height;
-        this.font = font;
-        rectangle = new Rectangle((int)xpos, (int)ypos, (int)width, (int)height);
     }
 
     public float center(OrthographicCamera camera) {

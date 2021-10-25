@@ -14,14 +14,24 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 
 class Load extends Thread {
     public void run(final Main game) {
-        game.manager.load("images/tiles.png", Texture.class);
+        game.manager.load("images/b.png", Texture.class);
+        game.manager.load("images/i.png", Texture.class);
+        game.manager.load("images/l.png", Texture.class);
+        game.manager.load("images/r.png", Texture.class);
+        game.manager.load("images/t.png", Texture.class);
+        game.manager.load("images/p.png", Texture.class);
         game.manager.load("drop.wav", Sound.class);
         game.manager.load("bust.wav", Sound.class);
         game.manager.load("twist.wav", Sound.class);
         game.manager.load("danger.wav", Sound.class);
         game.manager.load("music.mp3", Music.class);
         game.manager.finishLoading();
-        game.types = game.manager.get("images/tiles.png", Texture.class);
+        game.types.add(game.manager.get("images/i.png", Texture.class));
+        game.types.add(game.manager.get("images/l.png", Texture.class));
+        game.types.add(game.manager.get("images/r.png", Texture.class));
+        game.types.add(game.manager.get("images/t.png", Texture.class));
+        game.types.add(game.manager.get("images/p.png", Texture.class));
+        game.types.add(game.manager.get("images/b.png", Texture.class));
         game.drop = game.manager.get("drop.wav", Sound.class);
         game.bust = game.manager.get("bust.wav", Sound.class);
         game.twist = game.manager.get("twist.wav", Sound.class);
@@ -45,7 +55,7 @@ public class Splash implements Screen {
         generator = new FreeTypeFontGenerator(Gdx.files.internal("font.otf"));
         parameter.color = Color.WHITE;
         parameter.size = 120;
-        game.header = generator.generateFont(parameter);
+        header = generator.generateFont(parameter);
         y = game.tileSize * 12;
         new Load().run(game);
     }

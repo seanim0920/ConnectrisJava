@@ -17,9 +17,9 @@ import java.util.Random;
 
 public abstract class Unit implements Screen {
     public Main game;
+    public Texture square;
     public boolean touched = false;
     public Vector3 touchPos = new Vector3();
-    public Vector3 oldPos = new Vector3();
     public Tile[][] field = new Tile[7][12];
     public OrthographicCamera camera;
     public boolean moved = false;
@@ -33,10 +33,14 @@ public abstract class Unit implements Screen {
 
     public Tile holding = null;
 
+    public Array<Texture> types = new Array<Texture>();
     public Color[] colors = {Color.YELLOW, Color.GREEN, Color.CYAN, new Color(0.25f,0.25f,1,1), Color.MAGENTA, Color.RED};
 
     public Unit(final Main game) {
         this.game = game;
+        this.square = game.pixel;
+        this.camera = game.camera;
+        this.types = game.types;
         this.tileSize = (int)(game.camera.viewportWidth/7);
     }
 
@@ -99,28 +103,11 @@ public abstract class Unit implements Screen {
         if (camera != null) {
             if (Gdx.input.isTouched()) {
                 touchPos = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0));
-                if (touched) {
-                    processTouching(false);
-                } else {
-                    touched = true;
-                    processTouching(true);
-                }
-                oldPos = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0));
+                touched = true;
             } else {
-                if (!touched) {
-                    processNotouch(false);
-                } else {
-                    touched = false;
-                    processNotouch(true);
-                }
+                touched = false;
             }
         }
-    }
-
-    public void processTouching(boolean changed) {
-    }
-
-    public void processNotouch(boolean changed) {
     }
 
     public Tile getTile(Vector2 coords) {
@@ -158,15 +145,16 @@ public abstract class Unit implements Screen {
         game.batch.setProjectionMatrix(game.camera.combined);
 
         checkTouch();
+        processTouch();
 
         game.batch.begin();
 
         process();
 
         game.batch.setColor(Color.WHITE);
-        game.batch.draw(new TextureRegion(game.pixel), 0, game.camera.viewportHeight - (tileSize + 5), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, tileSize / 7, 1, 1, 0);
+        game.batch.draw(new TextureRegion(square), 0, game.camera.viewportHeight - (tileSize + 5), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, tileSize / 7, 1, 1, 0);
         game.batch.setColor(Color.BLACK);
-        game.batch.draw(new TextureRegion(game.pixel), 0, (game.camera.viewportHeight - tileSize), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5 * tileSize / 5, 1, 1, 0);
+        game.batch.draw(new TextureRegion(square), 0, (game.camera.viewportHeight - tileSize), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5 * tileSize / 5, 1, 1, 0);
         game.batch.setColor(Color.WHITE);
 
         drawText();
