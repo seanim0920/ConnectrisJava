@@ -34,9 +34,8 @@ public class Menu extends Unit implements Screen {
         parameter.size = 75;
 
         title = new Label("CONNECTRIS", header);
-        title.ypos = tileSize * 13;
+        title.ypos = game.camera.viewportHeight;
         title.xpos = title.center(game.camera);
-        title.lastTime = System.currentTimeMillis();
         parameter.borderColor = Color.WHITE;
         parameter.color = Color.BLACK;
         parameter.borderWidth = 5;
@@ -52,11 +51,6 @@ public class Menu extends Unit implements Screen {
         button.font.draw(game.batch, button.layout, button.xpos, button.ypos);
         title.font.draw(game.batch, title.layout, title.xpos, title.ypos);
         float time = (float) (System.currentTimeMillis() - title.lastTime) / 300;
-        if (time <= 1) {
-            title.ypos = new Interpolation.SwingOut(1.5f).apply(tileSize * 13, tileSize * 12, time);
-        } else {
-            title.ypos = tileSize * 12;
-        }
     }
 
     public void process() {
