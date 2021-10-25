@@ -1,39 +1,60 @@
 package com.mygdx.game;
 
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.Vector2;
+
+import java.awt.Color;
+
 /**
  * Created by admin on 7/19/2017.
  */
 
 public class Tile {
     //for falling physics
+    protected float xpos = 0;
     protected float height = 1736;
     protected float velocity = 0;
 
-    protected int type = 0;
+    protected boolean canMove = true;
+    protected boolean checked = false;
+    protected long lastRotTime;
+    protected Vector2 parent = new Vector2(-1,-1);
+    protected float opacity = 1;
+    protected int type;
     protected float angle = 0;
     protected int dir = 0;
     protected boolean placed = false;
+    protected boolean caught = false;
     protected boolean connected = false;
     protected boolean destroyed = false;
     protected boolean falling = false;
     protected boolean[] sides = new boolean[4]; //contains the sides that are linked from 0 - 3 counter-clockwise starting from the top
 
-    public Tile(int type, int dir) {
-        this.dir = dir;
-        this.type = type;
+    public Tile(Type type) {
         switch (type) {
-            case 5:
-                sides[1] = true;
-            case 4:
-                sides[2] = true;
-            case 3:
-                sides[3] = true;
-            case 1:
-                sides[0] = true;
+            case p:
+                this.type = 4;
+                for (int i = 0; i < 4; i++)
+                    sides[i] = true;
                 break;
-            case 2:
-                sides[1] = true;
+            case t:
+                this.type = 3;
+                for (int i = 1; i < 4; i++)
+                    sides[i] = true;
+                break;
+            case r:
+                this.type = 2;
                 sides[3] = true;
+                sides[2] = true;
+                break;
+            case i:
+                this.type = 0;
+                sides[2] = true;
+                break;
+            case l:
+                this.type = 1;
+                sides[2] = true;
+                sides[0] = true;
                 break;
             default:
                 break;
@@ -45,13 +66,18 @@ public class Tile {
             }
         }
     }
-    public void rotate() {
+    public void rotate(boolean right) {
+        lastRotTime = System.currentTimeMillis();
         boolean[] temp = sides.clone();
-        dir = (dir + 1) % 4;
-        for (int i = 0; i < 4; i++) {
-            sides[(i + 1) % 4] = temp[i];
-            if (sides[(i + 1) % 4]) {
-                System.out.println("SIDE " + ((i + 1) % 4) + " IS OPEN");
+        if (right) {
+            dir = (dir + 1) % 4;
+            for (int i = 0; i < 4; i++) {
+                sides[(i + 1) % 4] = temp[i];
+            }
+        } else {
+            dir = ((((dir - 1) % 4) + 4) % 4);
+            for (int i = 0; i < 4; i++) {
+                sides[((((i - 1) % 4) + 4) % 4)] = temp[i];
             }
         }
     }
