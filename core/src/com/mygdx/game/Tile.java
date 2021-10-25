@@ -1,6 +1,9 @@
 package com.mygdx.game;
 
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
+
+import java.awt.Color;
 
 /**
  * Created by admin on 7/19/2017.
@@ -9,17 +12,13 @@ import com.badlogic.gdx.math.Vector2;
 public class Tile {
     //for falling physics
     protected float xpos = 0;
-    protected float ypos = 1736;
+    protected float height = 1736;
     protected float velocity = 0;
 
     protected boolean canMove = true;
     protected boolean checked = false;
     protected long lastRotTime;
-    protected float lastDir = 0;
-    protected long lastMovTime;
-    protected float lastPos = 0;
-    protected Tile[] children = new Tile[4];
-    protected Tile parent = null;
+    protected Vector2 parent = new Vector2(-1,-1);
     protected float opacity = 1;
     protected int type;
     protected float angle = 0;
@@ -30,8 +29,6 @@ public class Tile {
     protected boolean destroyed = false;
     protected boolean falling = false;
     protected boolean[] sides = new boolean[4]; //contains the sides that are linked from 0 - 3 counter-clockwise starting from the top
-    protected int tileSize;
-    protected Vector2 coords = new Vector2();
 
     public Tile(Type type) {
         switch (type) {
@@ -70,6 +67,7 @@ public class Tile {
         }
     }
     public void rotate() {
+        lastRotTime = System.currentTimeMillis();
         boolean[] temp = sides.clone();
         dir = (dir + 1) % 4;
         for (int i = 0; i < 4; i++) {

@@ -52,7 +52,7 @@ class Main extends Game implements ApplicationListener {
 		batch = new SpriteBatch();
 		camera = new OrthographicCamera();
 		camera.setToOrtho(false, 1080, 1920);
-		this.tileSize = (int)(camera.viewportWidth/7);
+		this.tileSize = 150;
 		this.setScreen(new Splash(this));
 		prefs = Gdx.app.getPreferences("My Preferences");
 		prefs.putBoolean("First", false);

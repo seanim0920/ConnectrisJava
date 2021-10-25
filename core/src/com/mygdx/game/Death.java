@@ -2,14 +2,21 @@ package com.mygdx.game;
 
         import com.badlogic.gdx.Gdx;
         import com.badlogic.gdx.Screen;
+        import com.badlogic.gdx.audio.Music;
+        import com.badlogic.gdx.audio.Sound;
         import com.badlogic.gdx.graphics.Color;
         import com.badlogic.gdx.graphics.GL20;
+        import com.badlogic.gdx.graphics.Pixmap;
+        import com.badlogic.gdx.graphics.Texture;
         import com.badlogic.gdx.graphics.g2d.BitmapFont;
         import com.badlogic.gdx.graphics.g2d.TextureRegion;
         import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+        import com.badlogic.gdx.math.Interpolation;
         import com.badlogic.gdx.math.Vector2;
         import com.badlogic.gdx.math.Vector3;
         import com.badlogic.gdx.utils.Array;
+
+        import java.util.Random;
 
 /**
  * Created by admin on 7/27/2017.
@@ -103,8 +110,6 @@ public class Death extends Arcade implements Screen {
         game.batch.setColor(1, 1, 1, 1);
 
         drawField();
-
-        processTouch();
 
         game.batch.end();
     }

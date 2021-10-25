@@ -5,10 +5,11 @@ import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
-import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 
@@ -16,10 +17,11 @@ import java.util.Random;
 
 public abstract class Unit implements Screen {
     public Main game;
+    public BitmapFont header;
     public Texture square;
     public boolean touched = false;
     public Vector3 touchPos = new Vector3();
-    public Tile[][] field = new Tile[7][12];
+    public Tile[][] field = new Tile[6][12];
     public OrthographicCamera camera;
     public boolean moved = false;
     public int hcolumn = 3;
@@ -33,21 +35,18 @@ public abstract class Unit implements Screen {
     public Tile holding = null;
 
     public Array<Texture> types = new Array<Texture>();
-    public Color[] colors = {Color.YELLOW, Color.GREEN, Color.CYAN, new Color(0.25f,0.25f,1,1), Color.MAGENTA, Color.RED};
+    public Color[] colors = {Color.ORANGE, Color.YELLOW, Color.GREEN, Color.CYAN, Color.MAGENTA, Color.RED};
 
     public Unit(final Main game) {
         this.game = game;
         this.square = game.pixel;
         this.camera = game.camera;
         this.types = game.types;
+        this.header = game.header;
         this.tileSize = (int)(game.camera.viewportWidth/7);
     }
 
     public void place(Tile tile, int x, int y) {
-        tile.xpos = x * tileSize;
-        tile.ypos = y * tileSize;
-        tile.coords.set(x, y);
-        tile.placed = true;
         adjustColumn(x, y);
         field[x][y] = tile;
     }
@@ -91,7 +90,7 @@ public abstract class Unit implements Screen {
     public int findSpace(int x) {
         int i = findFloor(x);
         for (int y = i - 1; y >= 0; y--) {
-            if (field[hcolumn][y] != null && field[hcolumn][y].ypos > ((y) * tileSize) + (tileSize / 2)) {
+            if (field[hcolumn][y] != null && field[hcolumn][y].height > ((y) * tileSize) + (tileSize / 2)) {
                 i = y;
             }
         }
@@ -102,30 +101,27 @@ public abstract class Unit implements Screen {
         if (camera != null) {
             if (Gdx.input.isTouched()) {
                 touchPos = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0));
-                touched = true;
+                if (touched) {
+                    processTouching(false);
+                } else {
+                    touched = true;
+                    processTouching(true);
+                }
             } else {
-                touched = false;
+                if (!touched) {
+                    processTouchend(false);
+                } else {
+                    touched = false;
+                    processTouchend(true);
+                }
             }
         }
     }
 
-    public Tile getTile(Vector2 coords) {
-        if (coords.y > ceiling)
-            return null;
-        if (coords.y < 0) {
-            if (coords.x % 2 == 0)
-                return field[(int)coords.x + 1][0];
-            else
-                return field[(int)coords.x - 1][0];
-        }
-        if (coords.x < 0)
-            return field[field.length - 1][(int)coords.y];
-        if (coords.x >= field.length)
-            return field[0][(int)coords.y];
-        return field[(int)coords.x][(int)coords.y];
+    public void processTouching(boolean changed) {
     }
 
-    public void processTouch() {
+    public void processTouchend(boolean changed) {
     }
 
     public void process() {
@@ -144,7 +140,6 @@ public abstract class Unit implements Screen {
         game.batch.setProjectionMatrix(game.camera.combined);
 
         checkTouch();
-        processTouch();
 
         game.batch.begin();
 

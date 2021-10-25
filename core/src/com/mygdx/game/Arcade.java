@@ -10,6 +10,7 @@ import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
@@ -17,7 +18,10 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
+
+import java.util.Random;
 
 /**
  * Created by admin on 7/27/2017.
@@ -27,6 +31,7 @@ public class Arcade extends Unit implements Screen {
     FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
     BitmapFont font;
 
+    private Array<Vector2> corners = new Array<Vector2>();
     private int dframes = 0;
 
     private int tiles = 0;
@@ -39,9 +44,10 @@ public class Arcade extends Unit implements Screen {
     private boolean end = false;
     private int step = 1;
     private float brightness = 1;
+    private int hrow = 3;
+    private int hcolumn = 3;
 
-    private int yoffset = 200 + tileSize;
-    private int xoffset = 0;
+    private boolean held = false;
     protected Music gameover;
     protected Sound thud;
     protected Sound drop;
@@ -49,8 +55,8 @@ public class Arcade extends Unit implements Screen {
     protected Sound twist;
     protected Sound bust;
     //resources
-    //private Array<Vector2> corners = new Array<Vector2>();
     private Texture cursor;
+    private Texture dot;
     private Pixmap pixmap;
 
     //game variables
@@ -91,7 +97,7 @@ public class Arcade extends Unit implements Screen {
         if (current != null)
             tile.dir = current.dir;
 
-        tile.ypos = game.camera.viewportHeight;
+        tile.height = game.camera.viewportHeight;
         if (rng.nextInt(10) == 1)
             tile.canMove = false;
         return tile;
@@ -118,7 +124,6 @@ public class Arcade extends Unit implements Screen {
             if (!end) {
                 if (dframes <= 0) {
                     drawParticles();
-                    drawHolding();
                     drawField();
                 } else {
                     drawConnected();
@@ -195,309 +200,210 @@ public class Arcade extends Unit implements Screen {
         //quit
     }
 
-    public void processTouch() {
-        if (dframes <= 0) {
-            if (touched) {
-                int x = (int) ((touchPos.x) / tileSize);
-                int y = (int) ((touchPos.y) / tileSize);
-                //if touch is within range
-                if (holding == null) {
-                    if (field[x][y] != null && field[x][y].ypos == y * tileSize) {
-                        if (field[x][y].type > 0) {
-                            lastTouchTime = System.currentTimeMillis();
-                            holding = remove(x, y);
-                            holding.checked = false;
-                            moved = false;
-                            game.twist.play();
-                            //this section only sets holding, make sure it doesn't need a value
-                            hrow = y;
-                            hcolumn = x;
-                            //System.out.println("X OFFSET IS " + offset.x);
-                        } else if (field[x][y].opacity >= 1) {
-                            field[x][y].opacity = 0;
-                            game.danger.play();
-                        }
-                    }
-                }
-                //for moving current piece side-to-side
-                if (x != hcolumn || y != hrow) moved = true;
-                tcolumn = x;
-            } else {
-                if (holding != null) {
-                    int x = hcolumn;
-                    int y = hrow;
-                    if (moved || holding.ypos / tileSize > y) {
-                        y = findSpace(x);
-                    }
-                    if (!moved) {
-                        holding.rotate();
-                        holding.lastRotTime = System.currentTimeMillis();
-                    }
-                    place(holding, x, y);
-                    holding = null;
+    public void processTouching(boolean changed) {
+        int x = (int) ((touchPos.x) / tileSize);
+        int y = (int) ((touchPos.y) / tileSize);
+        if (y > ceiling)
+            y = ceiling;
+        if (!held) {
+            holding = field[x][y];
+            hrow = x;
+            hcolumn = y;
+        }
+        tcolumn = x;
+    }
+
+    public void processTouchend(boolean changed) {
+        int x = (int) ((touchPos.x) / tileSize);
+        int y = (int) ((touchPos.y) / tileSize);
+        if (!held) {
+            if (holding != null) {
+                if (holding.canMove) {
+                    held = true;
+                    lastTouchTime = System.currentTimeMillis();
+                    holding.checked = false;
+                    game.twist.play();
+                    //System.out.println("X OFFSET IS " + offset.x);
+                } else if (holding.opacity >= 1) {
+                    field[x][y].rotate();
+                    field[x][y].opacity = 0;
+                    game.twist.play();
                 }
             }
+        } else if (changed) {
+            held = false;
+            holding.height = tileSize * findSpace(x);
+            remove(hrow, hcolumn);
+            place(holding, x, findSpace(x));
+            holding = null;
         }
     }
 
-    private void checktion(Tile tile) {
-        boolean containsLoop = false;
-        //use BFS to see if the graph is connected
-        Array<Tile> caught = new Array<Tile>();
-        Array<Tile> graph = new Array<Tile>();
-        Array<Tile> stack = new Array<Tile>();
-        stack.add(tile);
-        graph.add(tile);
-        while (stack.size > 0) {
-            Tile ctile = stack.pop();
-            Vector2 ccoords = ctile.coords;
-            System.out.println("CHECKING TILE AT " + ccoords.x + ", " + ccoords.y + ", WHOSE COORDINATES ARE " + new Vector2(ctile.xpos, ctile.ypos));
-            boolean open = false;
-            for (int i = 0; i < 4; i++) {
-                if (ctile.sides[i]) {
-                    System.out.println("SIDE " + i + " IS OPEN");
-                    Vector2 chcoords = new Vector2();
-                    switch (i) {
-                        case 0:
-                            chcoords.set(ccoords.x, ccoords.y + 1);
-                            break;
-                        case 1:
-                            chcoords.set(ccoords.x - 1, ccoords.y);
-                            break;
-                        case 2:
-                            chcoords.set(ccoords.x, ccoords.y - 1);
-                            break;
-                        case 3:
-                            chcoords.set(ccoords.x + 1, ccoords.y);
-                            break;
-                        default:
-                            break;
-                    }
-                    System.out.println("CCORDS IS " + ccoords + " AND i IS " + i);
-                    System.out.println("CHECKING IF MATCHING TILE IS AT " + chcoords);
-                    Tile chtile = getTile(chcoords);
-                    if (chtile != null && chtile.placed && chtile.angle % 90 == 0 && ((i == 2 && ctile.coords.y == 0 && chtile.sides[i]) || (chtile.sides[(i + 2) % 4]))) {
-                        System.out.println("YES, IT CONNECTS");
-                        ctile.children[i] = chtile;
-                        if (!graph.contains(chtile, true)) {
-                            System.out.println("WE HAVEN'T RECORDED THIS TILE YET, ADDING THE TILE WHOSE COORDS ARE " + new Vector2(chtile.xpos, chtile.ypos) + " TO THE STACK");
-                            stack.add(chtile);
-                            graph.add(chtile);
-                            chtile.parent = ctile;
-                        } else if (chtile != ctile.parent) {//this isn't the same tile)
-                            System.out.println("FOUND A LOOP");
-                            containsLoop = true;
-                        } else {
-                            System.out.println("THIS IS JUST THE TILE'S PARENT, IGNORE IT");
-                        }
-                    } else { //clear everything, the path is not valid
-                        if (chtile == null)
-                            System.out.println("CHTILE IS NULL");
-                            //else if (field[x1][y1].ypos != y1 * tileSize)
-                            //System.out.println("IT'S CONNECTED TO A PIECE BUT THAT PIECE IS STILL MOVING");
-                            //else if (field[x1][y1].angle % 90 != 0)
-                            //System.out.println("IT'S CONNECTED TO A PIECE BUT THAT PIECE IS STILL SPINNING");
-                        else if (!((i == 2 && ctile.coords.y == 0 && chtile.sides[i]) || ((chtile.sides[(i + 2) % 4]))))
-                            System.out.println("NOT CONNECTED TO THIS ONE");
-                            //else if (field[x1][y1].type == 0)
-                            //System.out.println("IT'S CONNECTED TO A BLOCK");
-                        else
-                            System.out.println("UNKNOWN ERROR");
-
-                        System.out.println("NO IT DOESNT");
-                        open = true;
-                        break;
-                    }
-                }
-            }
-            //System.out.println("FINISHED CHECKING TILE AT " + x0 + ", " + y0);
-            if (open) {
-                stack.clear();
-                caught.clear();
-                for (int i = 0; i < graph.size; i++) {
-                    graph.get(i).parent = null;
-                    for (int c = 0; c < graph.get(i).children.length; c++)
-                        graph.get(i).children[c] = null;
-                }
-                graph.clear();
-                break;
-            }
-        }
-        if (graph.size > 0) {
-            speed = speed + (graph.size)/(15*speed);
-            if (containsLoop) {
-                System.out.println("LOOKING FOR THE LOOP");
-                //Use DFS to find all the loops
-                Array<com.seanimo.game.Tile> visited = new Array<com.seanimo.game.Tile>();
-                stack.clear();
-                stack.add(tile);
-                visited.add(tile);
-                while (stack.size > 0) {
-                    com.seanimo.game.Tile ctile = stack.pop();
-                    Vector2 ccoords = ctile.coords;
-                    System.out.println("CHECKING TILE AT " + ccoords.x + ", " + ccoords.y);
-                    for (int i = 0; i < ctile.children.length; i++) {
-                        com.seanimo.game.Tile chtile = ctile.children[i];
-                        if (chtile != null) {
-                            if (!visited.contains(chtile, true)) {
-                                stack.add(chtile);
-                                visited.add(chtile);
+    private void checktion(int x, int y) {
+        Vector2 start = new Vector2(-1,-1);
+        Vector2 end = new Vector2(-1,-1);
+        boolean loop = false;
+        if (field[x][y] != null) {
+            Array<Tile> caught = new Array<Tile>();
+            Array<Tile> visited = new Array<Tile>();
+            Array<Vector2> stack = new Array<Vector2>();
+            stack.add(new Vector2(x, y));
+            visited.add(field[x][y]);
+            while (stack.size > 0) {
+                Vector2 coord = stack.pop();
+                int x0 = (int) coord.x;
+                int y0 = (int) coord.y;
+                //System.out.println("CHECKING TILE AT " + x0 + ", " + y0);
+                boolean open = false;
+                if (field[x0][y0] != null) {
+                    field[x0][y0].checked = true;
+                    for (int i = 0; i < 4; i++) {
+                        if (field[x0][y0].sides[i]) {
+                            //System.out.println("SIDE " + i + " IS OPEN");
+                            int x1 = 0;
+                            int y1 = 0;
+                            switch (i) {
+                                case 0:
+                                    x1 = x0;
+                                    y1 = y0 + 1;
+                                    break;
+                                case 1:
+                                    y1 = y0;
+                                    x1 = x0 - 1;
+                                    break;
+                                case 2:
+                                    x1 = x0;
+                                    y1 = y0 - 1;
+                                    break;
+                                case 3:
+                                    y1 = y0;
+                                    x1 = x0 + 1;
+                                    break;
+                                default:
+                                    break;
                             }
-                            if (chtile.parent != ctile) {
-                                System.out.println("HERE'S A LOOP AT " + ccoords);
-                                //then we've found a loop. add all the tiles in the loop to the loop array
-                                Array<com.seanimo.game.Tile> loop = new Array<com.seanimo.game.Tile>();
-                                com.seanimo.game.Tile ptile = chtile;
-                                while (!visited.contains(ptile, true)) {
-                                    loop.add(ptile);
-                                    ptile = ptile.parent;
+                            //System.out.println("IS THERE A TILE AT " + x1 + ", " + y1 + "? ");
+                            if (x1 >= 0 && x1 < 7 && y1 >= 0 && y1 <= ceiling && field[x1][y1] != null && field[x1][y1].height == y1 * tileSize && field[x1][y1].angle % 90 == 0 && field[x1][y1].sides[(i + 2) % 4]) {
+                                //System.out.println("YES");
+                                if (!visited.contains(field[x1][y1], true)) {
+                                    //System.out.println("WE HAVEN'T RECORDED THIS TILE YET, ADDING TO THE STACK");
+                                    stack.add(new Vector2(x1, y1));
+                                    field[x1][y1].xpos = x1 * tileSize;
+                                    visited.add(field[x1][y1]);
+                                    field[x1][y1].parent = new Vector2(x0, y0);
+                                } else if (field[x0][y0].parent.x != x1 && field[x0][y0].parent.y != y1) {
+                                    end = new Vector2(x0, y0);
+                                    start = new Vector2(x1, y1);
+                                    loop = true;
                                 }
-                                loop.add(chtile.parent);
-                                ptile = ctile;
-                                int index = loop.size;
-                                while (!loop.contains(ptile, true)); {
-                                    loop.insert(index, ptile);
-                                    ptile = ptile.parent;
-                                }
-                                //loop array should contain all the tiles in the loop now.
-                                for (int t = 0; t < loop.size; t++) {
-                                    System.out.println("CHECKING IF " + loop.get(t).coords + " IS A CORNER");
-                                    Vector2 cdir = loop.get((((t - 1) % loop.size) + loop.size) % loop.size).coords.sub(loop.get(t).coords);
-                                    Vector2 pdir = loop.get(t).coords.sub(loop.get((t + 1) % loop.size).coords);
-                                    if (((cdir.x != pdir.x) || cdir.y != pdir.y)) {
-                                        System.out.println("LOOKS LIKE IT IS A CORNER");
-                                        corners.add(loop.get(t));
-                                        for (int col = 0; col <= loop.get(i).coords.x; col++) {
-                                            for (int row = 0; row <= loop.get(i).coords.y; row++) {
-                                                if (field[col][row] != null) {
-                                                    if (!caught.contains(field[col][row], true)) {
-                                                        caught.add(field[col][row]);
-                                                    } else
-                                                        caught.removeValue(field[col][row], true);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                loop.clear();
+                            } else { //clear everything, the path is not valid
+                                /*
+                                if (x1 < 0 || x1 >= 7 || y1 < 0 || y1 > ceiling)
+                                    System.out.println("ONE SIDE IS OUT OF BOUNDS");
+                                else if (field[x1][y1] == null)
+                                    System.out.println("ONE SIDE IS NOT CONNECTED TO ANYTHING");
+                                else if (field[x1][y1].height != y1 * tileSize)
+                                    System.out.println("IT'S CONNECTED TO A PIECE BUT THAT PIECE IS STILL MOVING");
+                                else if (field[x1][y1].angle % 90 != 0)
+                                    System.out.println("IT'S CONNECTED TO A PIECE BUT THAT PIECE IS STILL SPINNING");
+                                else if (!field[x1][y1].sides[(i + 2) % 4])
+                                    System.out.println("IT'S CONNECTED TO A PIECE BUT THAT PIECE ISN'T CONNECTED TO THIS ONE");
+                                else if (field[x1][y1].type == 0)
+                                    System.out.println("IT'S CONNECTED TO A BLOCK");
+                                else
+                                    System.out.println("UNKNOWN ERROR");
+                                */
+
+                                open = true;
+                                break;
                             }
                         }
                     }
                     //System.out.println("FINISHED CHECKING TILE AT " + x0 + ", " + y0);
                 }
-            }
-            brightness = 0;
-            game.bust.play();
-            dframes = 10;
-            System.out.println(caught.size + " TILES ARE CAUGHT");
-            System.out.println(graph.size + " TILES ARE CONNECTED");
-        }
-        for (int i = 0; i < graph.size; i++) {
-            if (caught.contains(graph.get(i), true))
-                caught.removeValue(graph.get(i), true);
-            score = score + (i * 10);
-            flux = flux + (score * 10);
-            graph.get(i).connected = true;
-        }
-        for (int i = 0; i < caught.size; i++) {
-            System.out.println((caught.get(i).xpos / tileSize) + ", " + (caught.get(i).ypos / tileSize) + " IS CAUGHT");
-            score = score + (i * 25);
-            flux = flux + (score * 25);
-            caught.get(i).caught = true;
-        }
-    }
-
-    private void drawHolding() {
-        //draw the piece being held
-        if (holding != null) {
-            game.batch.setColor(colors[holding.type].r, colors[holding.type].g, colors[holding.type].b, 0.5f*brightness);
-            float time = (float) (System.currentTimeMillis() - holding.lastRotTime) / 200;
-            if (time <= 1) {
-                holding.angle = new Interpolation.SwingOut(1.5f).apply((holding.dir - 1) * 90, holding.dir * 90, time);
-            } else {
-                holding.angle = holding.dir * 90;
-            }
-            if (touched) {
-                if (findFloor(tcolumn) <= ceiling) hcolumn = tcolumn;
-                game.batch.draw(new TextureRegion(types.get(holding.type)), tileSize * hcolumn, holding.ypos, (float) Math.ceil(tileSize / 2), (float) Math.ceil(tileSize / 2), tileSize, tileSize, 1, 1, holding.angle);
-                int row = findSpace(hcolumn);
-                holding.ypos = row * tileSize;
-                if (row == ceiling) {
-                    place(holding, hcolumn, row);
-                    holding = null;
+                if (open) {
+                    stack.clear();
+                    caught.clear();
+                    for (int i = 0; i < visited.size; i++) {
+                        visited.get(i).parent = new Vector2(-1,-1);
+                    }
+                    visited.clear();
+                    break;
                 }
             }
-        }
-    }
-
-    private void updateTile(int x, int y) {
-        //if (corners.contains(new Vector2(x, y), false))
-        //game.batch.draw(new TextureRegion(square), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.2f, 0.2f, 0);
-        Tile tile = getTile(new Vector2(x, y));
-        if (tile != null) {
-            if (tile.opacity < 1)
-                tile.opacity = tile.opacity + 0.05f;
-            game.batch.setColor(colors[tile.type].r, colors[tile.type].g, colors[tile.type].b, brightness);
-            if (tile.ypos != tile.coords.y * tileSize) {
-                tile.checked = false;
-                if (tile.ypos > tile.coords.y * tileSize) {
-                    if (tile.ypos - tile.velocity > tile.coords.y * tileSize) {
-                        tile.ypos = tile.ypos - tile.velocity;
-                        tile.velocity = tile.velocity + 1.9f;
-                    } else {
-                        tile.ypos = y * tileSize;
-                        tile.velocity = 0;
-                        if (tile.coords.y == findFloor((int)tile.coords.x) - 1)
-                            game.drop.play();
+            if (visited.size > 0) {
+                if (loop) {
+                    //System.out.println("FOUND A LOOP, PARENT OF " + x0 + ", " + y0 + " IS " + field[x0][y0].parent + "BUT IT'S ALSO CONNECTED TO " + x1 + ", " + y1);
+                    Tile c = field[(int)end.x][(int)end.y];
+                    while (c.parent.x >= 0 && c.parent.y >= 0 && field[(int)c.parent.x][(int)c.parent.y].parent != start) {
+                        c = field[(int)c.parent.x][(int)c.parent.y];
                     }
-                } else {
-                    tile.ypos = tile.ypos + tile.velocity;
-                    if (tile.ypos < (tile.coords.y * tileSize)) {
-                        tile.velocity = tile.velocity + 1.9f;
-                    } else {
-                        tile.ypos = tile.coords.y * tileSize;
-                        tile.velocity = 0;
-                    }
-                }
-            } else {
-                if (tile.coords.y == ceiling) {
-                    game.danger.play();
-                    for (int i = 0; i <= ceiling; i++) {
-                        if (field[(int)tile.coords.x][i] != null) {
-                            field[(int)tile.coords.x][i].opacity = 0;
+                    Vector2 vch = c.parent;
+                    Vector2 vc = start;
+                    Vector2 vp = end;
+                    c = field[(int)start.x][(int)start.y];
+                    while (field[(int) c.parent.x][(int) c.parent.y] != null && c.parent != start) {
+                        System.out.println("CHECKING IF " + c.parent.x + ", " + c.parent.y + " IS A CORNER");
+                        if (((vch.x - vc.x != vc.x - vp.x) || vch.y - vc.y != vc.y - vp.y)) {
+                            System.out.println("FOUND A CORNER");
+                            corners.add(vc);
+                            for (int col = 0; col <= vc.x; col++) {
+                                for (int row = 0; row <= vc.y; row++) {
+                                    if (field[col][row] != null) {
+                                        if (!caught.contains(field[col][row], true)) {
+                                            field[col][row].xpos = col * tileSize;
+                                            caught.add(field[col][row]);
+                                        } else
+                                            caught.removeValue(field[col][row], true);
+                                    }
+                                }
+                            }
                         }
+                        c = field[(int) c.parent.x][(int) c.parent.y];
+                        vch = vc;
+                        vc = vp;
+                        vp = c.parent;
                     }
                 }
-                float time = (float) (System.currentTimeMillis() - tile.lastRotTime) / 200;
-                if (time <= 1) {
-                    tile.checked = false;
-                    tile.angle = new Interpolation.SwingOut(1.5f).apply((tile.dir - 1) * 90, tile.dir * 90, time);
-                } else if (!tile.checked) {
-                    tile.angle = tile.dir * 90;
-                    checktion(x, y);
-                    if (tile.type == 0 && y == 0) {
-                        game.bust.play();
-                        tile.xpos = x * tileSize;
-                        tile.connected = true;
-                        dframes = 10;
-                    }
-                }
+                brightness = 0;
+                game.bust.play();
+                dframes = 10;
+                System.out.println(caught.size + " TILES ARE CAUGHT");
+                System.out.println(visited.size + " TILES ARE CONNECTED");
             }
-            game.batch.setColor(colors[tile.type]);
-            game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * x, yoffset + tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, 0);
-            game.batch.setColor(Color.WHITE);
-            game.batch.draw(new TextureRegion(types, types.getHeight() * tile.type, 0, types.getHeight(), types.getHeight()), (((tile.dir + 1) % 4) / 2) + xoffset + tileSize * x, ((tile.dir) / 2) + 5 + yoffset + tile.ypos, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1, tile.angle);
+            for (int i = 0; i < visited.size; i++) {
+                if (caught.contains(visited.get(i), true))
+                    caught.removeValue(visited.get(i), true);
+                if (visited.get(i).canMove) {
+                    score = score + (i * 10);
+                    flux = flux + (score * 10);
+                } else {
+                    score = score + (i * 20);
+                    flux = flux + (score * 20);
+                }
+                visited.get(i).connected = true;
+            }
+            for (int i = 0; i < caught.size; i++) {
+                System.out.println((caught.get(i).xpos / tileSize) + ", " + (caught.get(i).height / tileSize) + " IS CAUGHT");
+                score = score + (i * 25);
+                flux = flux + (score * 25);
+                caught.get(i).caught = true;
+            }
         }
+    }
+
+    public void drawText() {
+        header.draw(game.batch, Integer.toString(score), 0, tileSize * 12);
     }
 
     private void drawField() {
         //draw the field
         if (brightness < 1)
             brightness = brightness + 0.05f;
-        for (int x = 0; x < 7; x++) {
+        for (int x = 0; x < field.length; x++) {
             for (int y = ceiling; y >= 0; y--) {
-                //if (corners.contains(new Vector2(x, y), false))
-                    //game.batch.draw(new TextureRegion(square), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.2f, 0.2f, 0);
+                if (corners.contains(new Vector2(x, y), false))
+                    game.batch.draw(new TextureRegion(square), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.2f, 0.2f, 0);
                 if (field[x][y] != null) {
                     Tile tile = field[x][y];
                     game.batch.setColor(1,0,0,1-tile.opacity);
@@ -505,24 +411,26 @@ public class Arcade extends Unit implements Screen {
                     if (tile.opacity < 1)
                         tile.opacity = tile.opacity + 0.05f;
                     game.batch.setColor(colors[tile.type].r, colors[tile.type].g, colors[tile.type].b, brightness);
-                    if (tile.ypos != y * tileSize) {
+                    if (!tile.canMove)
+                        game.batch.setColor(colors[colors.length-1].r, colors[colors.length-1].g, colors[colors.length-1].b, brightness);
+                    if (tile.height != y * tileSize) {
                         tile.checked = false;
-                        if (tile.ypos > y * tileSize) {
-                            if (tile.ypos - tile.velocity > y * tileSize) {
-                                tile.ypos = tile.ypos - tile.velocity;
+                        if (tile.height > y * tileSize) {
+                            if (tile.height - tile.velocity > y * tileSize) {
+                                tile.height = tile.height - tile.velocity;
                                 tile.velocity = tile.velocity + 1.9f;
                             } else {
-                                tile.ypos = y * tileSize;
+                                tile.height = y * tileSize;
                                 tile.velocity = 0;
                                 if (y == findFloor(x) - 1)
                                     game.drop.play();
                             }
                         } else {
-                            tile.ypos = tile.ypos + tile.velocity;
-                            if (tile.ypos < (y * tileSize)) {
+                            tile.height = tile.height + tile.velocity;
+                            if (tile.height < (y * tileSize)) {
                                 tile.velocity = tile.velocity + 1.9f;
                             } else {
-                                tile.ypos = y * tileSize;
+                                tile.height = y * tileSize;
                                 tile.velocity = 0;
                             }
                         }
@@ -541,8 +449,8 @@ public class Arcade extends Unit implements Screen {
                             tile.angle = new Interpolation.SwingOut(1.5f).apply((tile.dir - 1) * 90, tile.dir * 90, time);
                         } else if (!tile.checked) {
                             tile.angle = tile.dir * 90;
-                            checktion(tile);
-                            if (tile.type == 0 && y == 0) {
+                            checktion(x, y);
+                            if (!tile.canMove && y == 0) {
                                 game.bust.play();
                                 tile.xpos = x * tileSize;
                                 tile.connected = true;
@@ -550,7 +458,22 @@ public class Arcade extends Unit implements Screen {
                             }
                         }
                     }
-                    game.batch.draw(new TextureRegion(types.get(tile.type)), tileSize * x, tile.ypos, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, tile.angle);
+                    if (tile == holding) {
+                        game.batch.draw(new TextureRegion(dot), tileSize * x, tile.height, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.2f, 0.2f, tile.angle);
+                        game.batch.setColor(Color.WHITE);
+                    }
+                    game.batch.draw(new TextureRegion(types.get(tile.type)), 90 + tileSize * x, 120 + tile.height, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, tile.angle);
+                    if (!held) {
+                        game.batch.setColor(Color.WHITE);
+                        game.batch.draw(new TextureRegion(dot), tileSize * x, tile.height, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.2f, 0.2f, tile.angle);
+                    }
+                } else if (held) {
+                    if (y == findSpace(x)) {
+                        game.batch.setColor(colors[holding.type].r, colors[holding.type].g, colors[holding.type].b, brightness);
+                        if (tcolumn == x)
+                            game.batch.setColor(Color.WHITE);
+                        game.batch.draw(new TextureRegion(dot), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.2f, 0.2f, 0);
+                    }
                 }
             }
         }
@@ -562,6 +485,8 @@ public class Arcade extends Unit implements Screen {
         font.setColor(Color.WHITE);
         font.draw(game.batch, Integer.toString(score), tileSize / 10 + 5, (int) (game.camera.viewportHeight - tileSize / 5) + 4);
         game.batch.setColor(colors[current.type]);
+        if (!current.canMove)
+            game.batch.setColor(colors[colors.length-1]);
         float time = (float) (currentTime - startTime) / (float) waitTime;
         game.batch.draw(cursor, tileSize * ccolumn, (tileSize * ((ceiling - 0.5f) + time)),            /* reposition to draw from half way up from the original sprite position */
                 tileSize / 2,
@@ -612,21 +537,21 @@ public class Arcade extends Unit implements Screen {
         //show exploding pieces
         for (int i = 0; i < dblocks.size; i++) {
             Tile block = dblocks.get(i);
-            if (block.xpos < -tileSize || block.xpos > 1080 + tileSize || block.ypos < -tileSize || block.opacity <= 0) {
+            if (block.xpos < -tileSize || block.xpos > 1080 + tileSize || block.height < -tileSize || block.opacity <= 0) {
                 dblocks.removeIndex(i);
             } else {
                 block.opacity = block.opacity - 0.01f;
                 game.batch.setColor(1, 1, 1, block.opacity);
                 if (block.connected) {
-                    block.ypos = block.ypos - block.velocity;
-                    block.velocity = block.velocity + block.ypos / tileSize;
+                    block.height = block.height - block.velocity;
+                    block.velocity = block.velocity + block.height / tileSize;
                     block.xpos = block.xpos + ((rng.nextInt(2) - 1) * block.velocity) + (block.xpos / tileSize) - 3;
                     if (block.angle <= 0) {
                         block.angle = block.angle + 1;
                     } else {
                         block.angle = block.angle - 1;
                     }
-                    game.batch.draw(new TextureRegion(square), block.xpos, block.ypos, tileSize / 2, tileSize / 2, tileSize / pScale, tileSize / pScale, 1, 1, block.angle);
+                    game.batch.draw(new TextureRegion(square), block.xpos, block.height, tileSize / 2, tileSize / 2, tileSize / pScale, tileSize / pScale, 1, 1, block.angle);
                 }
             }
         }
@@ -642,6 +567,14 @@ public class Arcade extends Unit implements Screen {
         pixmap.setColor(Color.WHITE);
         pixmap.fillTriangle(0, 0, half, half, 200, 0);
         cursor = new Texture(pixmap);
+
+        pixmap.dispose();
+
+        pixmap = new Pixmap(200, 200, Pixmap.Format.RGBA8888); //try RGBA4444 later
+        pixmap.setBlending(Pixmap.Blending.None);
+        pixmap.setColor(Color.WHITE);
+        pixmap.fillCircle(100,100,100);
+        dot = new Texture(pixmap);
 
         pixmap.dispose();
 
