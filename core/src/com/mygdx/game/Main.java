@@ -58,8 +58,8 @@ class Main extends Game implements ApplicationListener {
         batch.setColor(Color.WHITE);
 		camera = new OrthographicCamera();
 		camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-		//this.tileSize = (int)camera.viewportHeight/(int)Math.floor(camera.viewportHeight/160);
-        this.tileSize = 160;
+		this.tileSize = (((int)camera.viewportHeight/(int)Math.floor(camera.viewportHeight/160))/2)*2;
+        //this.tileSize = 166;
 		this.setScreen(new Splash(this));
 		prefs = Gdx.app.getPreferences("My Preferences");
 		prefs.putBoolean("First", false);

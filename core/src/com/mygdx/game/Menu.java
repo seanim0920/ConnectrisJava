@@ -37,6 +37,8 @@ public class Menu extends Unit {
         button = new Button("PLAY", game.header, 0);
         button.ypos = -tileSize;
         button.xpos = button.center(game.camera);
+        lastMovTime = System.currentTimeMillis() + 250;
+        button.lastMovTime = System.currentTimeMillis() + 500;
     }
 
     @Override
@@ -59,29 +61,21 @@ public class Menu extends Unit {
         }
 
         if (System.currentTimeMillis() - startTime >= 250) {
-            if (lastMovTime == 0)
-                lastMovTime = System.currentTimeMillis();
-            else {
                 time = (System.currentTimeMillis() - lastMovTime) / 500f;
                 ypos = tileSize * 10;
                 if (time <= 1) {
                     ypos = Interpolation.sine.apply(-tileSize * 2, tileSize * 10, time);
                 }
-            }
         }
 
         game.batch.draw(new TextureRegion(game.pixel), 0, ypos, (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5, 1, 1, 0);
 
         if (System.currentTimeMillis() - startTime >= 500) {
-            if (button.lastMovTime == 0)
-                button.lastMovTime = System.currentTimeMillis();
-            else {
                 time = (System.currentTimeMillis() - button.lastMovTime) / 500f;
                 button.ypos = tileSize * 6;
                 if (time <= 1) {
                     button.ypos = Interpolation.sine.apply(-tileSize * 6, tileSize * 6, time);
                 }
-            }
         }
 
         button.rectangle.x = (int)button.xpos;

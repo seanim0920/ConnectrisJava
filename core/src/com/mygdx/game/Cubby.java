@@ -6,10 +6,13 @@ public class Cubby extends Object {
     protected float xoffset = 0;
     protected float yoffset = 0;
     protected float size = 0;
+    protected float isize = 5;
     protected Tile tile = null;
     protected long lastChaTime = 0;
+    protected long lastSwiTime = 0;
     protected boolean held = false;
     protected Vector2 oPos = new Vector2();
+    protected Vector2 hPos = new Vector2();
     protected Vector2 tPos = new Vector2();
 
     public Cubby(Vector2 oPos) {

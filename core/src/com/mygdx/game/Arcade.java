@@ -110,13 +110,17 @@ public class Arcade extends Unit {
     float size = tileSize*0.8f;
 
     //to generate new tiles
-    private Tile newTile() {
+    private Tile newTile(Tile t) {
         Tile tile;
-        tile = new Tile(Type.valueOf(next));
-
-        //if (current != null)
-        //tile.incDir(current.dir, tileSize);
-
+        if (t == null) {
+            tile = new Tile(Type.valueOf(next));
+        } else {
+            tile = new Tile(Type.valueOf(t.type));
+            while (!tile.sides.equals(t.sides)) {
+                tile.rotate(1);
+            }
+            tile.canMove = false;
+        }
         tile.ypos = game.camera.viewportHeight;
         return tile;
     }
@@ -124,7 +128,7 @@ public class Arcade extends Unit {
     public Arcade(final Main game, final Music music) {
         super(game);
 
-        current = newTile();
+        current = newTile(null);
 
         shapeRenderer = new ShapeRenderer();
 
@@ -149,8 +153,13 @@ public class Arcade extends Unit {
     public void process() {
         if (!paused) {
             if (!end) {
+                updateCubbies();
                 drawParticles();
+                drawReflections();
+                drawWalls();
+                drawBlack();
                 drawField();
+                drawCubbies();
             } else {
                 game.setScreen(new Death(game, field));
             }
@@ -173,10 +182,10 @@ public class Arcade extends Unit {
             if (current.landed) {
                 ccolumn = (ccolumn + 1) % field.length;
                 cubbies[ccolumn].held = false;
-                holding = null;
-                cubbies[ccolumn].lastMovTime = System.currentTimeMillis();
-                if (cubbies[ccolumn].tile == null) {
-                    cPos = ccolumn * tileSize;
+                if (holding == cubbies[ccolumn]) {
+                    holding.lastMovTime = System.currentTimeMillis();
+                    holding = null;
+                }
                     type = rng.nextInt(100);
                     if (type < 10)
                         next = 4;
@@ -190,14 +199,8 @@ public class Arcade extends Unit {
                         next = 0;
                     else
                         next = 5;
-                    current = newTile();
-                } else {
-                    current = cubbies[ccolumn].tile;
-                    current.ypos = game.camera.viewportHeight;
-                    current.landed = false;
-                    current.canMove = false;
+                    current = newTile(cubbies[ccolumn].tile);
                     cubbies[ccolumn].tile = null;
-                }
             } else if (current.coords.x < 0) {
                 currentTime = currentTime + (long)speed + ((long)(Gdx.graphics.getDeltaTime()*1000)-(findSpace(ccolumn)/2)-(tiles/15));
             }
@@ -251,6 +254,16 @@ public class Arcade extends Unit {
         //quit
     }
 
+    private void rotate(Tile tile) {
+        if (tile.checked)
+            tile.firstAngle = tile.angle;
+        tile.lastAngle = tile.angle;
+        tile.dir = tile.dir + 1;
+        tile.checked = false;
+        tile.lastRotTime = System.currentTimeMillis();
+        game.twist.play();
+    }
+
     public void processTouching(boolean changed) {
         int x = (int) ((touchPos.x - xoffset) / tileSize);
         int y = (int) ((touchPos.y - yoffset) / tileSize);
@@ -263,10 +276,8 @@ public class Arcade extends Unit {
                 Tile tile = getTile(new Vector2(x, y));
                 if (tile != null && tile.ypos == y * tileSize) {
                     if (tile.canMove) {
-                        tile.checked = false;
-                        tile.lastRotTime = System.currentTimeMillis();
+                        rotate(tile);
                         moved = false;
-                        game.twist.play();
                         //this section only sets holding, make sure it doesn't need a value
                         hrow = y;
                         hcolumn = x;
@@ -283,17 +294,18 @@ public class Arcade extends Unit {
                     holding.yoffset = touchPos.y - holding.ypos;
                     holding.held = true;
                 } else {
-                    holding.tile.checked = false;
-                    holding.tile.lastRotTime = System.currentTimeMillis();
+                    rotate(holding.tile);
                     holding = null;
                 }
             }
         }
         if (holding != null) {
-            holding.tPos.set(touchPos.x - holding.xoffset - (holding.size - size)/2, touchPos.y - holding.yoffset);
+            holding.tPos.set(touchPos.x - holding.xoffset - (holding.size - size)/2, touchPos.y + size/4);
             if (holding.tPos.y > tileSize) {
                 System.out.println("COORDS OF CUBBY ARE " + (int)(holding.xpos - xoffset + holding.size/2)/tileSize + " " + (int)(holding.ypos - yoffset + holding.size/2)/tileSize);
                 holding.tile = getTile(new Vector2((int)(holding.xpos - xoffset + holding.size/2)/tileSize, (int)(holding.ypos - yoffset + holding.size/2)/tileSize));
+                if (holding.tile != null && !holding.tile.canMove)
+                    holding.tile = null;
             } else {
                 holding.tile = null;
             }
@@ -428,6 +440,67 @@ public class Arcade extends Unit {
         }
     }
 
+    private void updateCubbies() {
+        //must prepare for the next frame
+        int x = xoffset + ((1 + ccolumn) * tileSize) - tileSize / 2;
+        int y = 0;
+        for (int i = 0; i < field.length; i++) {
+            game.batch.setColor(Color.WHITE);
+            Cubby cubby = cubbies[i];
+            if (!cubby.held) {
+                if (cubby.tile != null) {
+                    Tile tile = cubby.tile;
+                    float time = (System.currentTimeMillis() - tile.lastRotTime) / 250f;
+                    if (time <= 1) {
+                        tile.angle = new Interpolation.SwingOut(1.5f).apply(tile.lastAngle, tile.firstAngle + tile.dir * 90, time);
+                        game.batch.setColor(Color.WHITE.cpy().lerp(colors[tile.type], time));
+                    } else {
+                        if (!tile.checked) {
+                            tile.rotate(tile.dir);
+                        }
+                    }
+
+                    float psize = cubby.size;
+
+                    time = (System.currentTimeMillis() - cubby.lastMovTime) / 250f;
+                    if (i == ccolumn) {
+                        psize = tileSize * 0.2f;
+                        if (time <= 1) {
+                            psize = new Interpolation.SwingOut(1.5f).apply(tileSize, tileSize * 0.2f, time);
+                        }
+                    }
+                }
+                double distance = Math.sqrt(Math.pow(cubby.tPos.x - cubby.oPos.x,2)+Math.pow(cubby.tPos.y - cubby.oPos.y,2));
+                float time = (System.currentTimeMillis() - cubby.lastMovTime) / 250f;
+                cubby.size = size;
+                cubby.isize = size / 4;
+                cubby.oPos.set(xoffset + ((tileSize - cubby.size)/2) + tileSize * i, xoffset + ((tileSize - cubby.size)/2) - 20);
+                cubby.xpos = cubby.oPos.x;
+                cubby.ypos = cubby.oPos.y;
+                if (time <= 1) {
+                    cubby.size = new Interpolation.SwingOut(1.5f).apply(tileSize, size, time);
+                    cubby.xpos = new Interpolation.SwingOut(1.5f).apply(cubby.tPos.x, cubby.oPos.x, time);
+                    cubby.ypos = new Interpolation.SwingOut(1.5f).apply(cubby.tPos.y, cubby.oPos.y, time);
+                }
+                if (i == ccolumn) {
+                    if (time > 1) {
+                        cubby.size = size - size * ((currentTime - startTime) / (float) (waitTime));
+                        //cubby.xpos = xoffset + ((tileSize - cubby.size)/2) + tileSize * i;
+                        //cubby.ypos = xoffset + ((tileSize - cubby.size)/2) - 20;
+                    }
+                }
+            } else {
+                float time = (System.currentTimeMillis() - cubby.lastChaTime) / 250f;
+                cubby.size = tileSize;
+                cubby.xpos = cubby.tPos.x;
+                cubby.ypos = cubby.tPos.y;
+                if (time <= 1) {
+                    cubby.size = new Interpolation.SwingOut(1.5f).apply(size, tileSize, time);
+                }
+            }
+        }
+    }
+
     private void updateTile(Tile tile) {
         //if (corners.contains(new Vector2(x, y), false))
         //game.batch.draw(new TextureRegion(square), tileSize * x, tileSize * y, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.2f, 0.2f, 0);
@@ -457,21 +530,20 @@ public class Arcade extends Unit {
                         }
                     }
                 }
-                tile.angle = (-tile.dir) * 90;
                 float time = (System.currentTimeMillis() - tile.lastRotTime) / 250f;
                 if (tile.canMove) {
                     if (time <= 1) {
-                        tile.angle = new Interpolation.SwingOut(1.5f).apply((tile.dir) * 90, (tile.dir + 1) * 90, time);
+                        tile.angle = new Interpolation.SwingOut(1.5f).apply(tile.lastAngle, tile.firstAngle + tile.dir * 90, time);
                         game.batch.setColor(Color.WHITE.cpy().lerp(colors[tile.type], time));
                     } else {
                         if (!tile.checked) {
-                            tile.rotate();
+                            tile.rotate(tile.dir);
                             checktion(tile);
                         }
                     }
                 } else {
                     if (time <= 1) {
-                        tile.angle = new Interpolation.SwingOut(1.5f).apply((tile.dir) * 90 - 30, (tile.dir) * 90, time);
+                        tile.angle = new Interpolation.SwingOut(1.5f).apply(tile.firstAngle * 90 - 30, tile.firstAngle * 90, time);
                         game.batch.setColor(Color.WHITE.cpy().lerp(colors[tile.type], time));
                     }
                 }
@@ -488,44 +560,29 @@ public class Arcade extends Unit {
         int s = -1;
         int e = field.length+1;
         for (int x = s; x < e; x++) {
-            for (int y = ceiling; y >= -1; y--) {
+            for (int y = ceiling; y >= 0; y--) {
                 Tile tile = getTile(new Vector2(x, y));
-                if (tile != null && (dframes <= 0 || tile.connected)) {
+                if (tile != null && tile.canMove && (dframes <= 0 || tile.connected)) {
                     game.batch.setColor(colors[tile.type]);
-                    if (!tile.canMove)
-                        game.batch.setColor(Color.RED);
                     updateTile(tile);
                     if (tile.connected) {
                         game.batch.setColor(Color.WHITE);
                     }
                     if (tile.type == rType) {
-                        if (y >= 0) {
-                            game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * x, yoffset + tile.ypos, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.8f, 0.8f, 0);
-                        } else {
-                            game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * x, yoffset - tile.ypos - tileSize, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.8f, 0.8f, 0);
-                        }
+                        game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * x, yoffset + tile.ypos, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.8f, 0.8f, 0);
                         game.batch.setColor(Color.WHITE);
                         for (int c = 0; c < tile.sides.length; c++) {
-                            if (tile.sides[(((c - tile.dir) % 4) + 4) % 4]) {
+                            if (tile.sides[c]) {
                                 if (!tile.connected || tile.children[c] != null) {
                                     //weirdness when connecting through the floor
-                                    if (y >= 0)
-                                        game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * rType, 0, game.types.getHeight(), game.types.getHeight()), xoffset + tileSize * x, yoffset + tile.ypos, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1, tile.angle + 90 * c);
-                                    else
-                                        game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * rType, 0, game.types.getHeight(), game.types.getHeight()), xoffset + tileSize * x, yoffset - tile.ypos - tileSize, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1,tile.angle + 90 * (c + 2));
+                                    game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * rType, 0, game.types.getHeight(), game.types.getHeight()), xoffset + tileSize * x, yoffset + tile.ypos, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1, tile.angle + 90 * c);
                                 }
                             }
                         }
                     } else {
-                        if (y >= 0) {
-                            game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * x, yoffset + tile.ypos, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.8f, 0.8f, 0);
-                            game.batch.setColor(Color.WHITE);
-                            game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * tile.type, 0, game.types.getHeight(), game.types.getHeight()), xoffset + tileSize * x, yoffset + tile.ypos, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1, tile.angle);
-                        } else {
-                            game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * x, yoffset - tile.ypos - tileSize, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.8f, 0.8f, 0);
-                            game.batch.setColor(Color.WHITE);
-                            game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * tile.type, 0, game.types.getHeight(), game.types.getHeight()), xoffset + tileSize * x, yoffset - tile.ypos - tileSize, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1, 180 + tile.angle);
-                        }
+                        game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * x, yoffset + tile.ypos, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.8f, 0.8f, 0);
+                        game.batch.setColor(Color.WHITE);
+                        game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * tile.type, 0, game.types.getHeight(), game.types.getHeight()), xoffset + tileSize * x, yoffset + tile.ypos, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1, tile.angle);
                     }
                     if (tile.connected && dframes == 1) {
                         destroyTile(tile);
@@ -533,48 +590,6 @@ public class Arcade extends Unit {
                 }
             }
         }
-
-        if (dframes > 0) {
-            dframes = dframes - 1;
-        } else {
-            //hud
-
-            //game.batch.setColor(Color.WHITE);
-            //game.batch.draw(new TextureRegion(square), tileSize / 5, (game.camera.viewportHeight - tileSize) + tileSize / 5, (tileSize / 2), (tileSize / 2), (game.camera.viewportWidth - 2 * tileSize / 5)*(flux/10000f), 3 * tileSize / 5, 1, 1, 0);
-            font.setColor(Color.WHITE);
-            game.batch.setColor(1, 1, 1, 1);
-
-            game.batch.setColor(Color.BLACK);
-            game.batch.draw(new TextureRegion(game.pixel), 0, 0, (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, yoffset - tileSize / 4, 1, 1, 0);
-            game.batch.setColor(Color.WHITE);
-            game.batch.draw(new TextureRegion(game.pixel), 0, yoffset - tileSize / 4 - 10, (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5, 1, 1, 0);
-            for (int x = 0; x < field.length; x++) {
-                game.batch.setColor(Color.WHITE);
-                game.batch.draw(new TextureRegion(game.pixel), (0.75f * tileSize) + xoffset + (tileSize) * x, yoffset, (tileSize / 2), (tileSize / 2), tileSize / 2, 5, 1, 1, 0);
-            }
-            game.batch.setColor(Color.WHITE);
-
-            game.batch.draw(new TextureRegion(game.pixel), 0, yoffset, (tileSize / 2), (tileSize / 2), xoffset + tileSize / 4, 5, 1, 1, 0);
-            game.batch.draw(new TextureRegion(game.pixel), game.camera.viewportWidth - xoffset, yoffset, (tileSize / 2), (tileSize / 2), xoffset, 5, 1, 1, 0);
-            for (int y = 0; y <= ceiling; y++) {
-                game.batch.draw(new TextureRegion(game.pixel), xoffset - 5, (0.75f * tileSize) + yoffset + (tileSize) * y, (tileSize / 2), (tileSize / 2), 5, tileSize / 2, 1, 1, 0);
-                game.batch.draw(new TextureRegion(game.pixel), game.camera.viewportWidth - xoffset, (0.75f * tileSize) + yoffset + (tileSize) * y, (tileSize / 2), (tileSize / 2), 5, tileSize / 2, 1, 1, 0);
-            }
-            game.batch.draw(new TextureRegion(game.pixel), xoffset - 5, yoffset, (tileSize / 2), (tileSize / 2), 5, tileSize / 4, 1, 1, 0);
-            game.batch.draw(new TextureRegion(game.pixel), game.camera.viewportWidth - xoffset, yoffset, (tileSize / 2), (tileSize / 2), 5, tileSize / 4, 1, 1, 0);
-
-            game.batch.setColor(Color.RED);
-            game.batch.draw(new TextureRegion(game.pixel), 0, yoffset + tileSize * (ceiling - 1), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5, 1, 1, 0);
-
-            drawCubbies();
-        }
-        game.batch.setColor(Color.WHITE);
-        game.batch.draw(new TextureRegion(game.pixel), 0, game.camera.viewportHeight - (tileSize + 5), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, tileSize / 7, 1, 1, 0);
-        game.batch.setColor(Color.BLACK);
-        game.batch.draw(new TextureRegion(game.pixel), 0, (game.camera.viewportHeight - tileSize), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5 * tileSize / 5, 1, 1, 0);
-        game.batch.setColor(Color.WHITE);
-
-        game.header.draw(game.batch, toString(score), xoffset, tileSize * 11);
     }
 
     private void destroyTile(Tile tile) {
@@ -630,70 +645,141 @@ public class Arcade extends Unit {
         //must prepare for the next frame
         int x = xoffset + ((1 + ccolumn) * tileSize) - tileSize / 2;
         int y = 0;
-        float csize = tileSize*0.75f;
         for (int i = 0; i < field.length; i++) {
             game.batch.setColor(Color.WHITE);
             Cubby cubby = cubbies[i];
-            if (cubby.tile != null) {
-                Tile tile = cubby.tile;
-                float time = (System.currentTimeMillis() - tile.lastRotTime) / 250f;
-                if (time <= 1) {
-                    tile.angle = new Interpolation.SwingOut(1.5f).apply((tile.dir - 1) * 90, tile.dir * 90, time);
-                    game.batch.setColor(Color.WHITE.cpy().lerp(colors[tile.type], time));
-                } else {
-                    if (!tile.checked) {
-                        tile.rotate();
-                    }
-                    tile.angle = tile.dir * 90;
-                }
 
+            if (cubby != holding && cubby.tile != null) {
+                updateTile(cubby.tile);
                 game.batch.setColor(colors[cubby.tile.type]);
                 game.batch.draw(new TextureRegion(game.pixel), cubby.xpos, cubby.ypos, (tileSize / 2), (tileSize / 2), cubby.size, cubby.size, 1, 1, 0);
                 game.batch.setColor(Color.WHITE);
                 game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * cubby.tile.type, 0, game.types.getHeight(), game.types.getHeight()), cubby.xpos, cubby.ypos, tileSize / 2, tileSize / 2, cubby.size, cubby.size, 1, 1, cubby.tile.angle);
             }
-            if (!cubby.held) {
-                double distance = Math.sqrt(Math.pow(cubby.tPos.x - cubby.oPos.x,2)+Math.pow(cubby.tPos.y - cubby.oPos.y,2));
-                float time = (System.currentTimeMillis() - cubby.lastMovTime) / 250f;
-                cubby.oPos.set(xoffset + ((tileSize - cubby.size)/2) + tileSize * i, xoffset + ((tileSize - cubby.size)/2) - 20);
-                cubby.size = size;
-                cubby.xpos = cubby.oPos.x;
-                cubby.ypos = cubby.oPos.y;
-                if (time <= 1) {
-                    cubby.size = new Interpolation.SwingOut(1.5f).apply(tileSize, size, time);
-                    cubby.xpos = new Interpolation.SwingOut(1.5f).apply(cubby.tPos.x, cubby.oPos.x, time);
-                    cubby.ypos = new Interpolation.SwingOut(1.5f).apply(cubby.tPos.y, cubby.oPos.y, time);
-                }
-            } else {
-                float time = (System.currentTimeMillis() - cubby.lastChaTime) / 250f;
-                cubby.size = tileSize;
-                cubby.xpos = cubby.tPos.x;
-                cubby.ypos = cubby.tPos.y;
-                if (time <= 1) {
-                    cubby.size = new Interpolation.SwingOut(1.5f).apply(size, tileSize, time);
-                }
-            }
-            if (i == ccolumn) {
-                cubby.size = size - size * ((currentTime - startTime) / (float) (waitTime));
-                //cubby.xpos = xoffset + ((tileSize - cubby.size)/2) + tileSize * i;
-                //cubby.ypos = xoffset + ((tileSize - cubby.size)/2) - 20;
 
-                //container to indicate
-
-                game.batch.draw(new TextureRegion(game.pixel), cubby.xpos - 15, cubby.ypos - 15, (tileSize / 2), (tileSize / 2), 5, cubby.size + 30, 1, 1, 0);
-                game.batch.draw(new TextureRegion(game.pixel), cubby.xpos - 15, cubby.ypos + cubby.size - 5 + 15, (tileSize / 2), (tileSize / 2), cubby.size + 30, 5, 1, 1, 0);
-                game.batch.draw(new TextureRegion(game.pixel), cubby.xpos + cubby.size - 5 + 15, cubby.ypos - 15, (tileSize / 2), (tileSize / 2), 5, cubby.size + 30, 1, 1, 0);
-                game.batch.draw(new TextureRegion(game.pixel), cubby.xpos, cubby.ypos, (tileSize / 2), (tileSize / 2), cubby.size + 30, 5, 1, 1, 0);
-            }
-
-            game.batch.draw(new TextureRegion(game.pixel), cubby.xpos, cubby.ypos, (tileSize / 2), (tileSize / 2), 5, cubby.size, 1, 1, 0);
-            game.batch.draw(new TextureRegion(game.pixel), cubby.xpos, cubby.ypos + cubby.size - 5, (tileSize / 2), (tileSize / 2), cubby.size, 5, 1, 1, 0);
-            game.batch.draw(new TextureRegion(game.pixel), cubby.xpos + cubby.size - 5, cubby.ypos, (tileSize / 2), (tileSize / 2), 5, cubby.size, 1, 1, 0);
-            game.batch.draw(new TextureRegion(game.pixel), cubby.xpos, cubby.ypos, (tileSize / 2), (tileSize / 2), cubby.size, 5, 1, 1, 0);
-
-            //shapeRenderer.box(cubby.xpos, cubby.ypos,0,cubby.size, cubby.size, 0);
-            //shapeRenderer.box(cubby.xpos + 5 , cubby.ypos + 5, 0, cubby.size - 10, cubby.size - 10, 0);
+            game.batch.draw(new TextureRegion(game.pixel), cubby.xpos + ((size - cubby.size)/2), cubby.ypos + ((size - cubby.size)/2), (tileSize / 2), (tileSize / 2), (cubby.size - cubby.isize)/2, cubby.size, 1, 1, 0);
+            game.batch.draw(new TextureRegion(game.pixel), cubby.xpos + ((size - cubby.size)/2), cubby.ypos + cubby.size - (cubby.size - cubby.isize)/2 + ((size - cubby.size)/2), (tileSize / 2), (tileSize / 2), cubby.size, (cubby.size - cubby.isize)/2, 1, 1, 0);
+            game.batch.draw(new TextureRegion(game.pixel), cubby.xpos + cubby.size - (cubby.size - cubby.isize)/2 + ((size - cubby.size)/2), cubby.ypos + ((size - cubby.size)/2), (tileSize / 2), (tileSize / 2), (cubby.size - cubby.isize)/2, cubby.size, 1, 1, 0);
+            game.batch.draw(new TextureRegion(game.pixel), cubby.xpos + ((size - cubby.size)/2), cubby.ypos + ((size - cubby.size)/2), (tileSize / 2), (tileSize / 2), cubby.size, (cubby.size - cubby.isize)/2, 1, 1, 0);
         }
+    }
+
+    private void drawBlack() {
+        if (holding != null) {
+            game.batch.setColor(Color.BLACK);
+            game.batch.draw(new TextureRegion(game.pixel), holding.xpos + ((size - holding.size) / 2), holding.ypos + ((size - holding.size) / 2), (tileSize / 2), (tileSize / 2), holding.size, holding.size, 1, 1, 0);
+        }
+    }
+
+    private void drawReflections() {
+        //draw reflection under field
+        for (int x = 0; x < field.length; x++) {
+            Tile tile = getTile(new Vector2(x, -1));
+            if (tile != null && (dframes <= 0 || tile.connected)) {
+                game.batch.setColor(colors[tile.type]);
+                if (!tile.canMove)
+                    game.batch.setColor(Color.RED);
+                updateTile(tile);
+                if (tile.connected) {
+                    game.batch.setColor(Color.WHITE);
+                }
+                if (tile.type == rType) {
+                    game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * x, yoffset - tile.ypos - tileSize, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.8f, 0.8f, 0);
+                    game.batch.setColor(Color.WHITE);
+                    for (int c = 0; c < tile.sides.length; c++) {
+                        if (tile.sides[(((c - tile.dir) % 4) + 4) % 4]) {
+                            if (!tile.connected || tile.children[c] != null) {
+                                //weirdness when connecting through the floor
+                                game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * rType, 0, game.types.getHeight(), game.types.getHeight()), xoffset + tileSize * x, yoffset - tile.ypos - tileSize, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1, tile.angle + 90 * (c + 2));
+                            }
+                        }
+                    }
+                } else {
+                    game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * x, yoffset - tile.ypos - tileSize, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.8f, 0.8f, 0);
+                    game.batch.setColor(Color.WHITE);
+                    game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * tile.type, 0, game.types.getHeight(), game.types.getHeight()), xoffset + tileSize * x, yoffset - tile.ypos - tileSize, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1, 180 + tile.angle);
+                }
+                if (tile.connected && dframes == 1) {
+                    destroyTile(tile);
+                }
+            }
+        }
+
+        //draw side reflections
+        int s = -1;
+        int e = field.length+1;
+        for (int x = s; x < e; x++) {
+            for (int y = ceiling; y >= 0; y--) {
+                Tile tile = getTile(new Vector2(x, y));
+                if (tile != null && (dframes <= 0 || tile.connected)) {
+                    game.batch.setColor(colors[tile.type]);
+                    if (!tile.canMove)
+                        game.batch.setColor(Color.RED);
+                    updateTile(tile);
+                    if (tile.connected) {
+                        game.batch.setColor(Color.WHITE);
+                    }
+                    if (tile.type == rType) {
+                        game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * x, yoffset + tile.ypos, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.8f, 0.8f, 0);
+                        game.batch.setColor(Color.WHITE);
+                        for (int c = 0; c < tile.sides.length; c++) {
+                            if (tile.sides[(((c - tile.dir) % 4) + 4) % 4]) {
+                                if (!tile.connected || tile.children[c] != null) {
+                                    //weirdness when connecting through the floor
+                                    game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * rType, 0, game.types.getHeight(), game.types.getHeight()), xoffset + tileSize * x, yoffset + tile.ypos, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1, tile.angle + 90 * c);
+                                }
+                            }
+                        }
+                    } else {
+                        game.batch.draw(new TextureRegion(game.pixel), xoffset + tileSize * x, yoffset + tile.ypos, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 0.8f, 0.8f, 0);
+                        game.batch.setColor(Color.WHITE);
+                        game.batch.draw(new TextureRegion(game.types, game.types.getHeight() * tile.type, 0, game.types.getHeight(), game.types.getHeight()), xoffset + tileSize * x, yoffset + tile.ypos, tileSize / 2, tileSize / 2, tileSize, tileSize, 1, 1, tile.angle);
+                    }
+                }
+            }
+        }
+    }
+
+    private void drawWalls() {
+        if (dframes > 0) {
+            dframes = dframes - 1;
+        } else {
+            //hud
+
+            //game.batch.setColor(Color.WHITE);
+            //game.batch.draw(new TextureRegion(square), tileSize / 5, (game.camera.viewportHeight - tileSize) + tileSize / 5, (tileSize / 2), (tileSize / 2), (game.camera.viewportWidth - 2 * tileSize / 5)*(flux/10000f), 3 * tileSize / 5, 1, 1, 0);
+
+            //draw sides of field
+
+            game.batch.setColor(Color.BLACK);
+            game.batch.draw(new TextureRegion(game.pixel), 0, 0, (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, yoffset - tileSize / 4, 1, 1, 0);
+            game.batch.setColor(Color.WHITE);
+            game.batch.draw(new TextureRegion(game.pixel), 0, yoffset - tileSize / 4 - 10, (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5, 1, 1, 0);
+            for (int x = 0; x < field.length; x++) {
+                game.batch.setColor(Color.WHITE);
+                game.batch.draw(new TextureRegion(game.pixel), (0.75f * tileSize) + xoffset + (tileSize) * x, yoffset, (tileSize / 2), (tileSize / 2), tileSize / 2, 5, 1, 1, 0);
+            }
+            game.batch.setColor(Color.WHITE);
+
+            game.batch.draw(new TextureRegion(game.pixel), 0, yoffset, (tileSize / 2), (tileSize / 2), xoffset + tileSize / 4, 5, 1, 1, 0);
+            game.batch.draw(new TextureRegion(game.pixel), game.camera.viewportWidth - xoffset, yoffset, (tileSize / 2), (tileSize / 2), xoffset, 5, 1, 1, 0);
+            for (int y = 0; y <= ceiling; y++) {
+                game.batch.draw(new TextureRegion(game.pixel), xoffset - 5, (0.75f * tileSize) + yoffset + (tileSize) * y, (tileSize / 2), (tileSize / 2), 5, tileSize / 2, 1, 1, 0);
+                game.batch.draw(new TextureRegion(game.pixel), game.camera.viewportWidth - xoffset, (0.75f * tileSize) + yoffset + (tileSize) * y, (tileSize / 2), (tileSize / 2), 5, tileSize / 2, 1, 1, 0);
+            }
+            game.batch.draw(new TextureRegion(game.pixel), xoffset - 5, yoffset, (tileSize / 2), (tileSize / 2), 5, tileSize / 4, 1, 1, 0);
+            game.batch.draw(new TextureRegion(game.pixel), game.camera.viewportWidth - xoffset, yoffset, (tileSize / 2), (tileSize / 2), 5, tileSize / 4, 1, 1, 0);
+
+            game.batch.setColor(Color.RED);
+            game.batch.draw(new TextureRegion(game.pixel), 0, yoffset + tileSize * (ceiling - 1), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5, 1, 1, 0);
+        }
+        game.batch.setColor(Color.WHITE);
+        game.batch.draw(new TextureRegion(game.pixel), 0, game.camera.viewportHeight - (tileSize + 5), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, tileSize / 7, 1, 1, 0);
+        game.batch.setColor(Color.BLACK);
+        game.batch.draw(new TextureRegion(game.pixel), 0, (game.camera.viewportHeight - tileSize), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5 * tileSize / 5, 1, 1, 0);
+        game.batch.setColor(Color.WHITE);
+
+        game.header.draw(game.batch, Integer.toString(score), xoffset, tileSize * 11);
     }
 
     private void place(Tile tile, int x, int y) {

@@ -14,19 +14,22 @@ public class Tile extends Object {
     protected boolean canMove = true;
     protected boolean checked = false;
     protected long lastRotTime;
-    protected float lastDir = 0;
+    protected float lastAngle = 0;
+    protected float firstAngle = 0;
     protected Tile[] children = new Tile[4];
     protected Tile parent = null;
     protected float opacity = 1;
     protected int type;
     protected float angle = 0;
     protected int dir = 0;
+    protected int newDir = 0;
     protected boolean placed = false;
     protected boolean caught = false;
     protected boolean connected = false;
     protected boolean destroyed = false;
     protected boolean falling = false;
     protected boolean[] sides = new boolean[4]; //contains the sides that are linked from 0 - 3 counter-clockwise starting from the top
+    protected boolean[] orig = new boolean[4];
     protected int tileSize;
     protected Vector2 coords = new Vector2(-1, -1);
 
@@ -71,15 +74,16 @@ public class Tile extends Object {
             }
         }
     }
-    public void rotate() {
+    public void rotate(int dir) {
+        angle = firstAngle + this.dir * 90;
         boolean[] temp = sides.clone();
-        dir = (dir + 1) % 4;
         for (int i = 0; i < 4; i++) {
             sides[(i + 1) % 4] = temp[i];
             //if (sides[(i + 1) % 4]) {
               //  System.out.println("SIDE " + ((i + 1) % 4) + " IS OPEN");
             //}
         }
+        this.dir = 0;
     }
 
     public void touched() { //when the player touches this tile
