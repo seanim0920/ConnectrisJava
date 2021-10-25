@@ -24,6 +24,7 @@ class Load extends Thread {
         game.manager.load("twist.wav", Sound.class);
         game.manager.load("danger.wav", Sound.class);
         game.manager.load("music.mp3", Music.class);
+        game.manager.finishLoading();
     }
 }
 
@@ -33,13 +34,15 @@ public class Splash implements Screen {
     private int y = 0;
     private FreeTypeFontGenerator generator;
     private FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
+    private BitmapFont header;
 
     public Splash(final Main game) {
         this.game = game;
         generator = new FreeTypeFontGenerator(Gdx.files.internal("font.otf"));
         parameter.color = Color.WHITE;
         parameter.size = 120;
-        game.header = generator.generateFont(parameter);
+        header = generator.generateFont(parameter);
+        game.header = header;
         y = game.tileSize * 12;
         new Load().run(game);
     }
@@ -61,13 +64,13 @@ public class Splash implements Screen {
         game.batch.draw(new TextureRegion(game.pixel), 0, (game.camera.viewportHeight - game.tileSize), (game.tileSize / 2), (game.tileSize / 2), game.camera.viewportWidth, 5 * game.tileSize / 5, 1, 1, 0);
         game.batch.setColor(Color.WHITE);
 
-        game.header.draw(game.batch, "CONNECTRIS", x, y);
+        header.draw(game.batch, "CONNECTRIS", x, y);
 
         game.batch.setColor(1, 1, 1, 1);
 
         game.batch.end();
 
-        x = (x + 1) % (int)game.camera.viewportWidth;
+        x = (x + 1) % (int) game.camera.viewportWidth;
 
         if (game.manager.update()) {
             game.types = game.manager.get("images/tiles.png", Texture.class);

@@ -65,22 +65,32 @@ public class Tile {
             default:
                 break;
         }
+    }
+    public void rotate(boolean right) {
+        lastDir = dir;
+        lastRotTime = System.currentTimeMillis();
+        boolean[] temp = sides.clone();
+        if (right) {
+            dir = (dir + 1) % 4;
+            for (int i = 0; i < 4; i++) {
+                sides[(i + 1) % 4] = temp[i];
+            }
+        } else {
+            dir = ((((dir - 1) % 4) + 4) % 4);
+            for (int i = 0; i < 4; i++) {
+                sides[((((i - 1) % 4) + 4) % 4)] = temp[i];
+            }
+        }
+    }
+
+    public void incDir(int dir, int tileSize) {
+        this.tileSize = tileSize;
+        this.dir = dir;
         for (int loop = 0; loop < dir; loop++) {
             boolean[] temp = sides.clone();
             for (int i = 0; i < 4; i++) {
                 sides[(i + 1) % 4] = temp[i];
             }
-        }
-    }
-    public void rotate() {
-        checked = false;
-        boolean[] temp = sides.clone();
-        dir = (dir + 1) % 4;
-        for (int i = 0; i < 4; i++) {
-            sides[(i + 1) % 4] = temp[i];
-            //if (sides[(i + 1) % 4]) {
-              //  System.out.println("SIDE " + ((i + 1) % 4) + " IS OPEN");
-            //}
         }
     }
 

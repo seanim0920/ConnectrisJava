@@ -22,7 +22,7 @@ class Main extends Game implements ApplicationListener {
 	AssetManager manager = new AssetManager();
 	SpriteBatch batch;
 	BitmapFont header;
-	BitmapFont text;
+    BitmapFont text;
 	OrthographicCamera camera;
 	int tileSize;
 
@@ -34,8 +34,8 @@ class Main extends Game implements ApplicationListener {
 	public Texture push;
 	public Texture turn;
 
-	boolean touched = false;
-	Vector3 touchPos = new Vector3();
+    boolean touched = false;
+    Vector3 touchPos = new Vector3();
 
 	Texture types;
 	Array<Texture> preview = new Array<Texture>();

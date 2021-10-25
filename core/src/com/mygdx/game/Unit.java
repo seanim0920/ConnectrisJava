@@ -18,26 +18,50 @@ import java.util.Random;
 
 public abstract class Unit implements Screen {
     public Main game;
+    public BitmapFont header;
     public boolean touched = false;
     public Vector3 touchPos = new Vector3();
     public Vector3 oldPos = new Vector3();
+    public OrthographicCamera camera;
+    public int ceiling = 9;
+    public Tile[][] field = new Tile[6][ceiling+1];
+    public boolean moved = false;
+    public int tcolumn = 3;
+    public int hcolumn = 3;
+    public int hrow = 0;
     public int tileSize;
     public Random rng = new Random();
     public FreeTypeFontGenerator generator;
 
-    public BitmapFont header;
-
     public Texture types;
-
-    public Tile holding = null;
+    public Array<Texture> preview = new Array<Texture>();
+    public Color[] colors = {Color.YELLOW, Color.GREEN, Color.CYAN, Color.BLUE, Color.MAGENTA, Color.RED};
 
     public Unit(final Main game) {
         this.game = game;
-        this.tileSize = game.tileSize;
+        this.camera = game.camera;
+        this.types = game.types;
+        this.preview = game.preview;
+        this.header = game.header;
+        this.tileSize = (int)Math.ceil(game.camera.viewportWidth/7);
+    }
+
+    public void place(Tile tile, int x, int y) {
+        tile.xpos = x * tileSize;
+        tile.ypos = y * tileSize;
+        tile.coords.set(x, y);
+        tile.placed = true;
+        field[x][y] = tile;
+    }
+
+    public Tile remove(int x, int y) {
+        Tile tile = field[x][y];
+        field[x][y] = null;
+        return tile;
     }
 
     public void checkTouch() {
-        if (game.camera != null) {
+        if (camera != null) {
             if (Gdx.input.isTouched()) {
                 touchPos = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0));
                 if (touched) {
@@ -70,6 +94,22 @@ public abstract class Unit implements Screen {
     public void drawText() {
     }
 
+    public Tile getTile(Vector2 coords) {
+        if (coords.y > ceiling)
+            return null;
+        if (coords.y < 0) {
+            if (coords.x % 2 == 0)
+                return field[(int)coords.x + 1][0];
+            else
+                return field[(int)coords.x - 1][0];
+        }
+        if (coords.x < 0)
+            return field[field.length - 1][(int)coords.y];
+        if (coords.x >= field.length)
+            return field[0][(int)coords.y];
+        return field[(int)coords.x][(int)coords.y];
+    }
+
     @Override
     public void render(float delta) {
         Gdx.gl.glClearColor(0, 0, 0, 1);
@@ -80,8 +120,6 @@ public abstract class Unit implements Screen {
         game.batch.setProjectionMatrix(game.camera.combined);
 
         checkTouch();
-
-        drawShape();
 
         game.batch.begin();
 
@@ -98,9 +136,5 @@ public abstract class Unit implements Screen {
         game.batch.setColor(1, 1, 1, 1);
 
         game.batch.end();
-    }
-
-    public void drawShape() {
-
     }
 }
