@@ -77,7 +77,6 @@ public class Menu implements Screen {
     //variables for input
     boolean touched = false;
     long lastTouchTime;
-    long lastRotTime;
     Vector3 touchPos = new Vector3();
 
     private boolean paused = false;
@@ -88,7 +87,19 @@ public class Menu implements Screen {
     //to generate new tiles
     private Tile newTile() {
         int type = next;
-        next = rng.nextInt(types.size);
+        next = rng.nextInt(100);
+        if (next < 10)
+            next = 5;
+        else if (next < 25)
+            next = 4;
+        else if (next < 50)
+            next = 3;
+        else if (next < 75)
+            next = 2;
+        else if (next < 90)
+            next = 1;
+        else
+            next = 0;
         //System.out.println("THE NEXT PIECE IS OF TYPE " + next);
         Tile tile;
         if (current != null)
@@ -126,10 +137,6 @@ public class Menu implements Screen {
 
         game.batch.setColor(1, 1, 1, 1);
 
-        if (Gdx.input.isTouched()) {
-            touchPos = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0));
-        }
-
         if (!paused) {
             if (!end) {
                 if (dframes <= 0) {
@@ -143,7 +150,7 @@ public class Menu implements Screen {
                 drawEnd();
             }
 
-            if (flux > 0) flux = flux - 1;
+            if (flux > 0) flux = flux - 2;
             currentTime = currentTime + ((long)(Gdx.graphics.getDeltaTime()*1000)-(findFloor(tcolumn)+1));
 
             if (currentTime - startTime >= waitTime) {
@@ -218,6 +225,7 @@ public class Menu implements Screen {
 
     private void checkTouch() {
         if (Gdx.input.isTouched()) {
+            touchPos = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0));
             int x = (int) ((touchPos.x) / tileSize);
             int y = (int) ((touchPos.y) / tileSize);
             //if touch is within range
@@ -225,15 +233,11 @@ public class Menu implements Screen {
                 if (field[x][y] != null && field[x][y].height == y * tileSize) {
                     touched = true;
                     lastTouchTime = System.currentTimeMillis();
-                    if (holding != null) {
-                        holding.angle = holding.dir * 90;
-                        holding = null;
-                    }
                     holding = remove(x, y);
                     moved = false;
                     twist.play();
                     holding.rotate();
-                    lastRotTime = System.currentTimeMillis();
+                    holding.lastRotTime = System.currentTimeMillis();
                     //this section only sets holding, make sure it doesn't need a value
                     offset.set((x * tileSize) - touchPos.x, (y * tileSize) - touchPos.y);
                     hrow = y;
@@ -244,6 +248,7 @@ public class Menu implements Screen {
             //for moving current piece side-to-side
             if (x != hcolumn || y != hrow) moved = true;
             tcolumn = x;
+            touched = true;
         } else {
             if (holding != null && touched) {
                 int x = hcolumn;
@@ -253,9 +258,7 @@ public class Menu implements Screen {
                     y = findFloor(tcolumn);
                 }
                 place(holding, x, y);
-                if (holding.angle % 90 == 0) {
-                    checktion(x, y);
-                }
+                holding = null;
             }
             touched = false;
         }
@@ -263,12 +266,11 @@ public class Menu implements Screen {
 
     private void checktion(int x, int y) {
         if (field[x][y] != null && field[x][y].type > 0) {
+            Array<Tile> caught = new Array<Tile>();
             Array<Tile> visited = new Array<Tile>();
             Array<Vector2> stack = new Array<Vector2>();
             stack.add(new Vector2(x, y));
             visited.add(field[x][y]);
-            Tile previous = field[x][y];
-            Tile loop = null;
             while (stack.size > 0) {
                 Vector2 coord = stack.pop();
                 int x0 = (int) coord.x;
@@ -308,8 +310,19 @@ public class Menu implements Screen {
                                     //System.out.println("WE HAVEN'T RECORDED THIS TILE YET, ADDING TO THE STACK");
                                     stack.add(new Vector2(x1, y1));
                                     visited.add(field[x1][y1]);
-                                } else if (field[x1][y1] != previous) {
-                                    loop = field[x0][y0];
+                                    field[x1][y1].parent = field[x0][y0];
+                                } else if (field[x0][y0] != field[x1][y1].parent) {
+                                    Tile c = field[x0][y0];
+                                    while (c.parent != field[x1][y1]) {
+                                        //keep backing up until it reaches a corner piece
+                                        //check what direction it's in using the difference in positions
+                                        //check what direction is the corner piece's parent
+                                        //use that pattern (if the previous corner piece is above this and the next corner turns right, then cycle like that)
+                                        //once we have 3 corners in the same cycle, we can calculate the rectangle between them, and put those tiles in the captured/caught array
+                                        //repeat, if you find a curve going in the opposite direction, continue going back until the direction changes to this one, or we run into the start of the loop.
+                                        //if we run into the start of the loop, clear the caught array and repeat this process assuming the first vectors are convex, so the inverse basically. just keep going back until we find other corners in the "right" direction, then calculate the rectangles and add them to the array.
+                                        c = c.parent;
+                                    }
                                 }
                             } else { //clear everything, the path is not valid
                                 //System.out.println("NO, NO PATH");
@@ -318,7 +331,6 @@ public class Menu implements Screen {
                             }
                         }
                     }
-                    previous = field[x0][y0];
                     //System.out.println("FINISHED CHECKING TILE AT " + x0 + ", " + y0);
                 }
                 if (open) {
@@ -364,22 +376,11 @@ public class Menu implements Screen {
                     }
                 }
             }
-            int y = (int) ((holding.height) / tileSize);
-            if (System.currentTimeMillis() - lastRotTime < 600) {
-                float time = (float) (System.currentTimeMillis() - lastRotTime) / 200;
-                if (time <= 1) {
-                    holding.angle = new Interpolation.SwingOut(1.5f).apply((holding.dir - 1) * 90, holding.dir * 90, time);
-                } else {
-                    holding.angle = holding.dir * 90;
-                    if (!touched) {
-                        holding = null;
-                        checktion(hcolumn, y);
-                    }
-                }
+            float time = (float) (System.currentTimeMillis() - holding.lastRotTime) / 200;
+            if (time <= 1) {
+                holding.angle = new Interpolation.SwingOut(1.5f).apply((holding.dir - 1) * 90, holding.dir * 90, time);
             } else {
-                lastRotTime = System.currentTimeMillis();
-                twist.play();
-                holding.rotate();
+                holding.angle = holding.dir * 90;
             }
             if (touched) {
                 if (findFloor(tcolumn) < ceiling) hcolumn = tcolumn;
@@ -394,6 +395,15 @@ public class Menu implements Screen {
             for (int y = 0; y < ceiling; y++) {
                 if (field[x][y] != null) {
                     Tile tile = field[x][y];
+                    if (tile.angle % 90 != 0) {
+                        float time = (float) (System.currentTimeMillis() - tile.lastRotTime) / 200;
+                        if (time <= 1) {
+                            tile.angle = new Interpolation.SwingOut(1.5f).apply((tile.dir - 1) * 90, tile.dir * 90, time);
+                        } else {
+                            tile.angle = tile.dir * 90;
+                            tile.check = true;
+                        }
+                    }
                     if (tile.transparency < 1) tile.transparency = tile.transparency + 0.05f;
                     game.batch.setColor(colors[tile.type].r, colors[tile.type].g, colors[tile.type].b, tile.transparency);
                     if (tile.height > y * tileSize) {
@@ -402,8 +412,9 @@ public class Menu implements Screen {
                             tile.velocity = tile.velocity + 1.9f;
                         } else {
                             tile.height = y * tileSize;
-                            drop.play();
                             tile.velocity = 0;
+                            if (y == findFloor(x) - 1)
+                                drop.play();
                             if (y >= ceiling) {
                                 end = true;
                                 gameover.play();
@@ -422,6 +433,8 @@ public class Menu implements Screen {
                         }
                     }
                     game.batch.draw(new TextureRegion(types.get(tile.type)), tileSize * x, tile.height, (tileSize / 2), (tileSize / 2), tileSize, tileSize, 1, 1, tile.angle);
+                    if (tile.check)
+                        checktion(x, y);
                 }
             }
         }
@@ -535,6 +548,8 @@ public class Menu implements Screen {
     }
 
     private void place(Tile tile, int x, int y) {
+        if (tile.angle % 90 == 0 && tile.height == y * tileSize)
+            tile.check = true;
         adjustColumn(x, y);
         field[x][y] = tile;
         System.out.println("SOMETHING EXISTS HERE");

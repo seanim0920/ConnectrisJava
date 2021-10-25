@@ -10,6 +10,9 @@ public class Tile {
     protected float height = 1736;
     protected float velocity = 0;
 
+    protected boolean check = false;
+    protected long lastRotTime;
+    protected Tile parent = null;
     protected float transparency = 1;
     protected int type = 0;
     protected float angle = 0;
