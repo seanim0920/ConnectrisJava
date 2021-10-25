@@ -1,7 +1,7 @@
 package com.mygdx.game;
 
 public enum Type {
-    i, l, r, t, p;
+    i, l, r, t, p, a;
 
     public static Type valueOf(int type) {
         switch (type) {
@@ -16,7 +16,7 @@ public enum Type {
             case 4:
                 return p;
             default:
-                return i;
+                return a;
         }
     }
 }

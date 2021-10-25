@@ -9,18 +9,12 @@ import java.awt.Color;
  * Created by admin on 7/19/2017.
  */
 
-public class Tile {
-    //for falling physics
-    protected float xpos = 0;
-    protected float ypos = 1736;
-    protected float velocity = 0;
-
+public class Tile extends Object {
+    protected boolean landed = false;
     protected boolean canMove = true;
     protected boolean checked = false;
     protected long lastRotTime;
     protected float lastDir = 0;
-    protected long lastMovTime;
-    protected float lastPos = 0;
     protected Tile[] children = new Tile[4];
     protected Tile parent = null;
     protected float opacity = 1;
@@ -34,7 +28,7 @@ public class Tile {
     protected boolean falling = false;
     protected boolean[] sides = new boolean[4]; //contains the sides that are linked from 0 - 3 counter-clockwise starting from the top
     protected int tileSize;
-    protected Vector2 coords = new Vector2();
+    protected Vector2 coords = new Vector2(-1, -1);
 
     public Tile(Type type) {
         switch (type) {
@@ -63,6 +57,11 @@ public class Tile {
                 sides[0] = true;
                 break;
             default:
+                this.type = 5;
+                sides[0] = true;
+                sides[1] = true;
+                sides[2] = true;
+                sides[3] = true;
                 break;
         }
         for (int loop = 0; loop < dir; loop++) {
@@ -73,15 +72,20 @@ public class Tile {
         }
     }
     public void rotate() {
-        checked = false;
         boolean[] temp = sides.clone();
-        dir = (dir + 1) % 4;
+        dir = (((dir - 1) % 4) + 4) % 4;
         for (int i = 0; i < 4; i++) {
-            sides[(i + 1) % 4] = temp[i];
+            sides[(((i - 1) % 4) + 4) % 4] = temp[i];
             //if (sides[(i + 1) % 4]) {
               //  System.out.println("SIDE " + ((i + 1) % 4) + " IS OPEN");
             //}
         }
+    }
+
+    public boolean isMoving() {
+        if (System.currentTimeMillis() - lastRotTime > 250f)
+            return false;
+        return true;
     }
 
     public void touched() { //when the player touches this tile

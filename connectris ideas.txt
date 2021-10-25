@@ -1,0 +1,92 @@
+the game needs to be timer-based rather than ending when the tiles reach the ceiling. unlike tetris, you need to more time to think about where you want to place a tile, and how it should be rotated, so it would feel better if you could control the pace yourself.
+
+possible solutions to the edge problem:
+
+2. tapping tiles to destroy them - pros: allows you to interact with tiles directly, makes logical sense. cons: tapping the exact tile may be too cumbersome in a time-based game.
+3. an erase tile that drops randomly - so if you make a mistake, you have to just survive until the next erase shows up? could work, we'll have to test that out
+4. connection lines along the edges - biggest issue is that this would take up precious screen real-estate. pros: easy to understand, would make sense, could potentially allow for more strategy.
+
+erase tiles exist that destroy tiles they touch
+
+you can rotate, position, and drop tiles
+tiles disappear when they form connections
+if a tile connects to the edge, it transforms into an unconnectable tile
+unconnectables disappear by touching the bottom of the screen, and earn you no points.
+
+position a tile and set its rotation before dropping
+drop tiles by pressing a button. you can drop as many tiles as you want as quickly as you want. 
+no penalty for filling up the field, besides being unable to place new tiles
+you have to prevent a connection meter from depleting by making connections
+cannot rotate or move tiles when they're already placed
+tapping a tile destroys it, but it takes some time before it can be destroyed. tap it again to undo this operation
+(optional: maybe it could act like a bomb and also destroy the tiles around it)
+(the only potential issue is we lose the feeling similar to tetris where, if you make a mistake, you get less space to correct it, increasing tension)
+(maybe include a bomb tile that simply destroys surrounding tiles when dropped)
+tiles that are destroyed when touching the bottom
+see if the field spinning mechanic should stay in place or not
+
+bonus for getting multiple rows at once, like in tetris
+show the amount of turns you survived in relaxed mode
+show the time you survived in arcade mode
+free play mode - place tiles anywhere and maybe produce your own sequences to be dropped? draw a series of tiles then draw/touch in what order they should be dropped? create custom arenas?
+challenges requiring you to reach a certain score before a certain pattern of pieces finishes dropping
+tell you the length of your connection, how many tiles you've captured, and when you hit streaks (destroyed tiles creating more connections)
+
+add another meter that can be filled when in frenzy mode. frenzy squared? idk what might be acheived through this, maybe the rainbow colors/flashing backgrounds
+when frenzy mode is acheived, all the tiles you destroy count towards a massive combo
+score will change to words when you get a combo, or when frenzy mode is acheived
+the tiles all have the same color/all colors cycle like a rainbow?
+adjust colors so all have similar luminosity (so blue isn't so dark)
+make red tiles/magenta tiles appear less often?
+when frenzy is acheived, all the red tiles disappear and give you double points
+frenzy mode, unlocked after completing all challenges
+tiles you have to destroy by forming clusters with other tiles? or would that go against the spirit of the game
+large tiles?
+tiles that come in immovable blocks/clusters
+tiles whose rotations are connected to other tiles
+should we let frenzies stack? as in, should you be able to get frenzy after frenzy if you do well enough in frenzy? should we make subsequent frenzies shorter? we'll see
+
+-menu:
+-timed
+-turn-based
+-versus
+-challenge mode
+-stats (total amount of blocks destroyed, total amount of blocks tapped, favorite block, longest play session, highest score, etc..)
+-acheivements?
+-monochrome mode/change colors option
+
+-pieces that pass through other pieces
+-diagonal mode
+-shapeout/match3 mode (field is already randomly filled, deleted tiles get replaced with more random tiles from the top)
+-special tiles that can overlap/combine with other ones
+-level where parts of the screen are obscured
+-completing a circuit explodes and pushes tiles upwards
+-mode where tiles are all variations on 4 ports
+-invisible mode
+-mode where loops don't destroy the insides
+-mode where blockades fall in (you can't move these blocks and they don't connect to anything, you can only destroy them by letting them touch the bottom or inside a circuit)
+-tiles that clone themselves
+-virus blocks that transform the adjacent blocks and the blocks they're connected to
+-floating pieces
+
+optional modes:
+
+-clear a certain amount of tiles as fast as possible
+-clear a chain of tiles of a certain length as fast as possible
+-make a certain amount of connections in as fast as possible
+-clear garbage tiles as fast as possible
+-survive a certain amount against the increasing garbage tiles
+-erase all "gems" from the field
+-take turns with an AI that wants to make you lose
+-every other turn is a random drop
+-clear a sequence of tiles as quickly as possible
+-create shapes for more points
+-only certain shapes can be destroyed
+-copy the shapes shown to win
+-make connections in the specified areas to win
+
+-any of the above before a time limit runs out
+
+-pay for no ads
+-score limit idea, you have to beat a certain score each time you play or else you lose a life, lose 3 and you need to wait 30 minutes to replay. score limit increases the better you are at the game
+-pay for no timer/energy

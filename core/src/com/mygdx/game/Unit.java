@@ -81,17 +81,9 @@ public abstract class Unit implements Screen {
 
         checkTouch();
 
-        drawShape();
-
         game.batch.begin();
 
         process();
-
-        game.batch.setColor(Color.WHITE);
-        game.batch.draw(new TextureRegion(game.pixel), 0, game.camera.viewportHeight - (tileSize + 5), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, tileSize / 7, 1, 1, 0);
-        game.batch.setColor(Color.BLACK);
-        game.batch.draw(new TextureRegion(game.pixel), 0, (game.camera.viewportHeight - tileSize), (tileSize / 2), (tileSize / 2), game.camera.viewportWidth, 5 * tileSize / 5, 1, 1, 0);
-        game.batch.setColor(Color.WHITE);
 
         drawText();
 
