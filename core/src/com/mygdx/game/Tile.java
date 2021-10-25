@@ -1,33 +1,24 @@
 package com.mygdx.game;
 
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.math.MathUtils;
-import com.badlogic.gdx.math.Rectangle;
-import com.badlogic.gdx.math.Vector;
-import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.math.Vector3;
-import com.badlogic.gdx.utils.Array;
-import com.badlogic.gdx.utils.Pool;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-
 /**
  * Created by admin on 7/19/2017.
  */
 
 public class Tile {
-    //we'll store the sides that can be connected, angle and special characteristics of this tile here
+    //for falling physics
+    protected float height = 1736;
+    protected float velocity = 0;
+
     protected int type = 0;
-    protected int angle = 0;
-    protected boolean rotating = false;
+    protected float angle = 0;
+    protected int dir = 0;
     protected boolean connected = false;
     protected boolean destroyed = false;
+    protected boolean falling = false;
     protected boolean[] sides = new boolean[4]; //contains the sides that are linked from 0 - 3 clockwise starting from the top
 
-    public Tile(int type, int angle) {
-        this.angle = angle;
+    public Tile(int type, int dir) {
+        this.dir = dir;
         this.type = type;
         switch (type) {
             case 6:
@@ -46,10 +37,17 @@ public class Tile {
             default:
                 break;
         }
+        for (int loop = 0; loop < dir; loop++) {
+            boolean[] temp = sides.clone();
+            for (int i = 0; i < 4; i++) {
+                System.out.println("TURNING SIDE " + sides[((i+1)%4)] + " INTO " + temp[i]);
+                sides[(i + 1) % 4] = temp[i];
+            }
+        }
     }
     public void rotate() {
-        angle = (angle + 1) % 4;
         boolean[] temp = sides.clone();
+        dir = (dir + 1) % 4;
         for (int i = 0; i < 4; i++) {
             System.out.println("TURNING SIDE " + sides[((i+1)%4)] + " INTO " + temp[i]);
             sides[(i + 1) % 4] = temp[i];
