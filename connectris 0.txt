@@ -1,0 +1,312 @@
+
+TEMP:
+
+package com.mygdx.game;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.g2d.Sprite;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.scenes.scene2d.ui.List;
+import com.badlogic.gdx.utils.Array;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.Random;
+
+import static java.lang.Math.PI;
+import static java.lang.Math.abs;
+
+/**
+ * Created by admin on 7/27/2017.
+ */
+
+public class Menu implements Screen {
+    final Main game;
+
+    private Random rng = new Random();
+    //resources
+    private Texture dot;
+    private Array<Texture> tiles;
+    private Pixmap pixmap;
+
+    private boolean[][] field; //the field only tells us whether a space is occupied or not
+    //we need to know whether a space is about to be filled or not
+    private LinkedList<ArrayList<Integer>> pieces = new LinkedList<ArrayList<Integer>>();
+    //linked list is the list of movable pieces on the field, the array contains the coordinates of each square (texture) within each piece
+    private ArrayList<Integer> next = new ArrayList<Integer>();
+    //piece being held
+    private ArrayList<Integer> held = new ArrayList<Integer>();
+    //this contains the coordinates of all the squares in the next piece about to fall, it will act differently from the pieces already on the field, its transparency will vary
+    private int gridSize = 9;
+    private float time = 10.0f;
+    //private java.util.List<Tetromino> queue = new ArrayList<Tetromino>();
+    private int previous = 0;
+    private float timer = 0;
+
+    private boolean landed = false;
+    private float alpha = 1.0f;
+    private int waitTime = 10000;
+    private int speed = 1;
+
+    private boolean touching = false;
+
+    public Menu(final Main game) {
+        this.game = game;
+
+        pixmap = new Pixmap(90, 90, Pixmap.Format.RGB888);
+        pixmap.setBlending(Pixmap.Blending.None);
+        pixmap.setColor(Color.WHITE);
+        pixmap.fill();
+        tiles.add(new Texture(pixmap));
+
+        pixmap.setColor(Color.CLEAR);
+        pixmap.fillCircle(80,80,10);
+        pixmap.fillRectangle(90,80,45,20);
+        tiles.add(new Texture(pixmap));
+
+        field = new boolean[gridSize][gridSize];
+    }
+
+    @Override
+    public void show() {
+
+    }
+
+    @Override
+    public void render(float delta) {
+        Gdx.gl.glClearColor(0, 0, 0, 1);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        game.camera.update();
+
+        game.batch.setProjectionMatrix(game.camera.combined);
+
+        game.batch.begin();
+        // or for non final texts: layout.setText(font, text);
+
+        //game.font.draw(game.batch, "Trop", (1080 - new GlyphLayout(game.font, "Trop").width) / 2, 1600);
+        //game.font.draw(game.batch, "Play", (1080 - new GlyphLayout(game.font, "Play").width) / 2, 600);
+        //game.font.draw(game.batch, "Options", (1080 - new GlyphLayout(game.font, "Options").width) / 2, 300);
+
+        //decimal
+        game.font.draw(game.batch, ".", (1080 - new GlyphLayout(game.font, ".").width) / 2, 1600);
+        //seconds
+        game.font.draw(game.batch, Integer.toString((int)(timer)), ((1080 - new GlyphLayout(game.font, ".").width) / 2) - new GlyphLayout(game.font, Integer.toString((int)(timer))).width, 1600);
+        //subseconds
+        game.font.draw(game.batch, String.format("%02d", (int)(Math.floor((timer - Math.floor(timer)) * 100.0))), ((1080 - new GlyphLayout(game.font, ".").width) / 2) + new GlyphLayout(game.font, ".").width, 1600);
+
+        //draws the grid
+        for (int x = 0; x < gridSize; x++)
+            for (int y = 0; y < gridSize; y++)
+                game.batch.draw(square, 116 + 100 * x, 510 + 100 * y, 24, 24);
+
+        //colors the section where the piece will fall
+        game.batch.setColor(1,0.5f,0.25f, 1);
+
+        for (int x = 0; x < gridSize; x++)
+            for (int y = 0; y < gridSize; y++)
+                for (int i = 0; i < next.size()/2; i++)
+                    if (next.get(i*2) == x && next.get((i*2)+1) == y)
+                            game.batch.draw(square, (116 - 40 * (1 - (timer / time))) + 100 * x, (510 - 40 * (1 - (timer / time))) + 100 * y, 24 + 76 * (1 - (timer / time)), 24 + 76 * (1 - (timer / time)));
+
+        //draw the next piece
+        if (!landed)
+            game.batch.setColor(1,1,1, 1 - (timer/time));
+        else {
+            System.out.println("ALPHA IS " + alpha);
+            alpha = alpha * 0.9f;
+            game.batch.setColor(1, 1, 1, alpha);
+            if (alpha <= 0.01) {
+                landed = false;
+                alpha = 1;
+                pieces.add(next);
+                next = new ArrayList<Integer>();
+                //creates the next piece to fall
+                int x = rng.nextInt(9);
+                int y = rng.nextInt(9);
+                next.add(x);
+                next.add(y);
+                System.out.println("PICKING NEW PIECE NOW, STARTING COORDINATES: " + x + " " + y);
+                for (int l = 0; l < 3; l++) {
+                    System.out.println("WE'RE GONNA DO IT, PICKING A NEW SPOT");
+                    boolean found = true;
+                    //get a random number from 1 to 4 (1 = +1,+0; 2 = +0,+1; 3 = -1,+0; 4 = +0,-1), check if that spot relative to the first coord is out of bounds or belongs to the piece itself, if not change x and y to the new coord
+                    //repeats until the piece "runs into itself"
+                    //this generates pieces like a snake, starting at a specific spot and picking a random direction to expand in
+                    //adjust so it spawns pieces around it randomly until it hits itself, then moves over to the piece it hit and spawns again until 3 more pieces have been chosen
+                    while (found) {
+                        int dx = 0;
+                        int dy = 0;
+                        int spot = rng.nextInt(4);
+                        System.out.println(spot);
+                        while ((x == 0 && spot == 2) || (x == 8 && spot == 0) || (y == 0 && spot == 3) || (y == 8 && spot == 1)) {
+                            spot = rng.nextInt(4);
+                        }
+                        switch (spot) {
+                            case 0:
+                                dx = 1;
+                                dy = 0;
+                                break;
+                            case 1:
+                                dx = 0;
+                                dy = 1;
+                                break;
+                            case 2:
+                                dx = -1;
+                                dy = 0;
+                                break;
+                            case 3:
+                                dx = 0;
+                                dy = -1;
+                                break;
+                        }
+                        //if the spot isn't out of bounds, then we make sure the new coordinates aren't already contained here
+                        found = false;
+                        for (int z = 0; z < next.size() / 2; z++) {
+                            if (next.get(z * 2) == x + dx && next.get((z * 2) + 1) == y + dy) {
+                                found = true;
+                            }
+                        }
+                        if (!found) {
+                            x = x + dx;
+                            y = y + dy;
+                            next.add(x);
+                            next.add(y);
+                        }
+                    }
+                }
+                System.out.println("PICKED NEW PIECE, SIZE IS : " + next.size());
+                timer = time;
+            }
+        }
+
+        for(int i = 0; i < next.size()/2; i++) {
+            game.batch.draw(square, 76 + 100 * next.get(i * 2), 470 + 100 * next.get((i * 2) + 1));
+        }
+
+        //draw the held piece (if exists)
+        for(int i = 0; i < held.size()/2; i++) {
+            game.batch.draw(square, held.get(i * 2), held.get((i * 2) + 1));
+        }
+
+        //draw all of the solid pieces now
+        game.batch.setColor(1,0.5f,0.25f,1);
+
+        for(int p = 0; p < pieces.size(); p++) {
+            ArrayList<Integer> piece = pieces.get(p);
+            for(int c = 0; c < piece.size()/2; c++) {
+                game.batch.draw(square, 76 + 100*piece.get(c*2), 470 + 100*piece.get((c*2)+1));
+            }
+        }
+        game.batch.setColor(1,1,1,1);
+
+        game.batch.end();
+
+        //start calculations
+
+        //1. pick a random x & y coordinate
+        //2. pick a random number from 1 to 4 (1 = up, 2 = right, 3 = down, 4 = left)
+        //3. check if that square is out of bounds
+        //4. if so, stop that number from being picked and repeat 2 & 3 until a clear space is picked
+        //5. repeat 2-4 4 times (maybe random number from 1 to 6 later)
+        //6. have those dots turn to that color and slowly increase in size/area fades into color
+        //7. after
+
+        timer = timer - Gdx.graphics.getDeltaTime();
+        //System.out.println("TIME IS ..." + timer);
+        if (timer <= 0.01) {
+            timer = 0;
+            for(int i = 0; i < next.size()/2; i++) {
+                //if (field[next.get(i*2)][next.get((i*2)+1)])
+                    //initiate the game over screen
+                field[next.get(i*2)][next.get((i*2)+1)] = true;
+            }
+            landed = true;
+        }
+
+        //control input
+
+        if (Gdx.input.isTouched()) {
+            Vector3 checkPos = game.camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0));
+            if (held.isEmpty()) {
+                if (checkPos.x >= 40 && checkPos.x <= 1040 && checkPos.y >= 470 && checkPos.y <= 1470) {
+                    int oldDelay = waitTime;
+                    waitTime = oldDelay;
+                    if (!touching) {
+                        touching = true;
+                    }
+                    for (int p = 0; p < pieces.size(); p++) {
+                        ArrayList<Integer> piece = pieces.get(p);
+                        for (int c = 0; c < piece.size() / 2; c++) {
+                            //check if x and y match the x and y of the input (converted to grid coordinates)
+                            if (piece.get(c * 2) == (int) ((checkPos.x - 40) / 1000) && piece.get((c * 2) + 1) == (int) ((checkPos.y - 450) / 1000)) {
+                                System.out.println("HEY GUYS WE GRABBED A PIECE: " + ((checkPos.x - 40) / 1000) + ", " + ((checkPos.y - 450) / 1000));
+                                held = piece;
+                                for (int loop = 0; loop < 2; loop++) {
+                                    int lowest = 100;
+                                    for (int i = 0; i < held.size() / 2; i++) {
+                                        if (loop == 0 && held.get(i*2) < lowest || loop == 0 && held.get((i*2)+1) < lowest) {
+                                            if (loop == 0)
+                                                lowest = held.get(i*2);
+                                            else
+                                                lowest = held.get((i*2)+1);
+                                        }
+                                    }
+                                    for (int i = 0; i < held.size() / 2; i++) {
+                                        if (loop == 0)
+                                            held.set(i*2, held.get(i*2)-lowest);
+                                        else
+                                            held.set((i*2)+1, held.get((i*2)+1)-lowest);
+                                    }
+                                }
+                                pieces.remove(p);
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                //set up the coordinates for the held piece
+            }
+        } else {
+            pieces.add(held);
+            held = new ArrayList<Integer>();
+            touching = false;
+        }
+    }
+
+    @Override
+    public void resize(int width, int height) {
+
+    }
+
+    @Override
+    public void pause() {
+
+    }
+
+    @Override
+    public void resume() {
+
+    }
+
+    @Override
+    public void hide() {
+
+    }
+
+    @Override
+    public void dispose() {
+
+    }
+}
