@@ -10,7 +10,7 @@ public class Tile {
     protected float height = 1736;
     protected float velocity = 0;
 
-    protected float transparency = 0;
+    protected float transparency = 1;
     protected int type = 0;
     protected float angle = 0;
     protected int dir = 0;
